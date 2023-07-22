@@ -1,0 +1,30 @@
+{
+    "name": "grand-sums-study",
+    "version": "0.0.1",
+    "description": "A study about grand-sums proposed by Hector Masip / Polygon zkEvm",
+    "main": "index.js",
+    "scripts": {
+        "test": "mocha"
+    },
+    "keywords": [
+        "grand-sums",
+        "zkEvm",
+        "zk",
+        "zero",
+        "knowledge",
+        "study"
+    ],
+    "author": "Xavier Pinsach",
+    "license": "ISC",
+    "dependencies": {
+        "@iden3/binfileutils": "^0.0.11",
+        "ffjavascript": "^0.2.59",
+        "js-sha3": "^0.8.0",
+        "logplease": "^1.2.15",
+        "yargs": "^17.7.2"
+    },
+    "devDependencies": {
+        "mocha": "^10.2.0",
+        "prettier": "3.0.0"
+    }
+}
