@@ -21,11 +21,11 @@ module.exports = async function kzg_grandproduct_prover(evalsBufferF, evalsBuffe
     // STEP 0. Get the settings and prepare the setup    
 
     // Ensure all polynomials have the same length
-    const polLen = evalsBufferF.byteLength / Fr.n8;
     if (evalsBufferF.byteLength !== evalsBufferT.byteLength) {
-            throw new Error("Both buffers must have the same length.");
+        throw new Error("Both buffers must have the same length.");
     }
-    
+
+    const polLen = evalsBufferF.byteLength / Fr.n8;
     const nBits = Math.ceil(Math.log2(polLen));
     const domainSize = 2 ** nBits;
 
@@ -57,24 +57,24 @@ module.exports = async function kzg_grandproduct_prover(evalsBufferF, evalsBuffe
 
     const transcript = new Keccak256Transcript(curve);
 
-    logger.info("> STEP 0. Generate the polynomials from the evaluations");
-    const { polF, polT } = await computePolynomials();
+    logger.info("> STEP 0. Generate the witness polynomials f,t ∈ 𝔽[X] from the evaluations");
+    const { polF, polT } = await computeWitnessPolynomials();
 
-    logger.info("> STEP 1. Compute polynomial commitments");
-    await computePolynomialCommitments();
+    logger.info("> STEP 1. Compute witness polynomial commitments");
+    await computeWitnessPolsCommitments();
 
-    logger.info("> STEP 2. Compute the Z polynomial");
+    logger.info("> STEP 2. Compute the grand-product polynomial Z ∈ 𝔽[X]");
     const polZ = await ComputeZPolynomial();
 
-    logger.info("> STEP 3. Compute the evaluations of the polynomials");
-    computeOpenings();
-
-    logger.info("> STEP 4. Compute Q polynomial");
+    logger.info("> STEP 3. Compute the quotient polynomial Q ∈ 𝔽[X]");
     const polQ = await computeQPolynomial();
 
-    // STEP 7. Get challenge alpha from transcript
-    logger.info("> STEP 5. computeWxi");
-    await computeWxi();
+    logger.info("> STEP 4. Compute the evaluations of the polynomials");
+    computeEvaluations();
+
+    // STEP 7. Get challenge v from transcript
+    logger.info("> STEP 5 computeWxi and Wxiomega");
+    await computeW();
 
     if (logger) {
         logger.info("");
@@ -85,7 +85,7 @@ module.exports = async function kzg_grandproduct_prover(evalsBufferF, evalsBuffe
 
     return proof;
 
-    async function computePolynomials() {
+    async function computeWitnessPolynomials() {
         // Convert the evaluations to Montgomery form
         evalsBufferF = await Fr.batchToMontgomery(evalsBufferF);
         evalsBufferT = await Fr.batchToMontgomery(evalsBufferT);
@@ -96,52 +96,36 @@ module.exports = async function kzg_grandproduct_prover(evalsBufferF, evalsBuffe
         return { polF, polT };
     }
 
-    async function computePolynomialCommitments() {
+    async function computeWitnessPolsCommitments() {
         proof.commitments = [];
         proof.commitments[0] = await polF.multiExponentiation(PTau, `polF`);
         proof.commitments[1] = await polT.multiExponentiation(PTau, `polT`);
 
-        logger.info(`··· [polF(X)]_1 = `, curve.G1.toString(proof.commitments[0]));
-        logger.info(`··· [polT(X)]_1 = `, curve.G1.toString(proof.commitments[1]));
+        logger.info(`··· [f(x)]₁ = `, curve.G1.toString(proof.commitments[0]));
+        logger.info(`··· [t(x)]₁ = `, curve.G1.toString(proof.commitments[1]));
     }
 
     async function ComputeZPolynomial() {
         transcript.addPolCommitment(proof.commitments[0]);
         transcript.addPolCommitment(proof.commitments[1]);
 
-        challenges.beta = transcript.getChallenge();
-        logger.info("··· beta = ", Fr.toString(challenges.beta));
+        challenges.gamma = transcript.getChallenge();
+        logger.info("··· gamma = ", Fr.toString(challenges.gamma));
 
         let polZ = [];
-        polZ = await buildZGrandProduct(evalsBufferF, evalsBufferT, challenges.beta, curve, { logger });
+        polZ = await buildZGrandProduct(evalsBufferF, evalsBufferT, challenges.gamma, curve, { logger });
 
         proof.commitmentZ = await polZ.multiExponentiation(PTau, `polZ`);
-        logger.info(`··· [Z(X)]_1 = `, curve.G1.toString(proof.commitmentZ));
+        logger.info(`··· [Z(x)]₁ = `, curve.G1.toString(proof.commitmentZ));
         return polZ;
-    }
-
-    function computeOpenings() {
-        transcript.reset();
-        transcript.addPolCommitment(proof.commitmentZ);
-
-        challenges.xi = transcript.getChallenge();
-        logger.info("··· xi = ", Fr.toString(challenges.xi));
-
-        proof.evaluations = [];
-        proof.evaluations[0] = polF.evaluate(challenges.xi);
-        proof.evaluations[1] = polT.evaluate(challenges.xi);
-
-        logger.info(`··· polF(xi) = `, Fr.toString(proof.evaluations[0]));
-        logger.info(`··· polT(xi) = `, Fr.toString(proof.evaluations[1]));
     }
 
     async function computeQPolynomial() {
         transcript.reset();
-        transcript.addEvaluation(proof.evaluations[0]);
-        transcript.addEvaluation(proof.evaluations[1]);
+        transcript.addPolCommitment(proof.commitmentZ);
 
-        challenges.gamma = transcript.getChallenge();
-        logger.info("··· gamma = ", Fr.toString(challenges.gamma));
+        challenges.alpha = transcript.getChallenge();
+        logger.info("··· alpha = ", Fr.toString(challenges.alpha));
 
         const evalsBufferQ = new Uint8Array(domainSize * Fr.n8);
         const evalsZ = await Evaluations.fromPolynomial(polZ, 1, curve, logger);
@@ -160,13 +144,13 @@ module.exports = async function kzg_grandproduct_prover(evalsBufferF, evalsBuffe
             // IDENTITY A) L_1(x)(Z(x)-1) = 0
             const qA_i = i === 0 ? Fr.sub(z_i, Fr.one) : Fr.zero;
 
-            //IDENTITY B) Z(Xg)(t(X)+α)−Z(X)(f(X)+α)
-            const identityB1 = Fr.mul(z_wi, Fr.add(t_i, challenges.beta));
-            const identityB2 = Fr.mul(z_i, Fr.add(f_i, challenges.beta));
+            //IDENTITY B) Z(Xg)·(t(X) + 𝜸) − Z(X)·(f(X) + 𝜸) = 0
+            const identityB1 = Fr.mul(z_wi, Fr.add(t_i, challenges.gamma));
+            const identityB2 = Fr.mul(z_i, Fr.add(f_i, challenges.gamma));
             let qB_i = Fr.sub(identityB1, identityB2);
 
-            //Apply gamma random factor
-            qB_i = Fr.mul(qB_i, challenges.gamma);
+            //Apply alpha random factor
+            qB_i = Fr.mul(qB_i, challenges.alpha);
 
             const q_i = Fr.add(qA_i, qB_i);
 
@@ -180,34 +164,57 @@ module.exports = async function kzg_grandproduct_prover(evalsBufferF, evalsBuffe
         polQ.divZh();
 
         proof.commitmentQ = await polQ.multiExponentiation(PTau, `polQ`);
-        logger.info(`··· [Q(X)]_1 = `, curve.G1.toString(proof.commitmentQ));
+        logger.info(`··· [Q(x)]₁ = `, curve.G1.toString(proof.commitmentQ));
         return polQ;
     }
 
-    async function computeWxi() {
+    function computeEvaluations() {
         transcript.reset();
-        transcript.addEvaluation(challenges.gamma);
+        transcript.addPolCommitment(proof.commitmentQ);
 
-        challenges.alpha = transcript.getChallenge();
-        logger.info("··· alpha = ", Fr.toString(challenges.alpha));
+        challenges.xi = transcript.getChallenge();
+        logger.info("··· xi = ", Fr.toString(challenges.xi));
+
+        proof.evaluations = [];
+        proof.evaluations[0] = polF.evaluate(challenges.xi);
+        proof.evaluations[1] = polZ.evaluate(Fr.mul(challenges.xi, Fr.w[nBits]));
+
+        logger.info(`··· polF(xi) = `, Fr.toString(proof.evaluations[0]));
+        logger.info(`··· polZ(xi·omega) = `, Fr.toString(proof.evaluations[1]));
+    }
+
+    async function computeW() {
+        transcript.reset();
+        transcript.addEvaluation(proof.evaluations[0]);
+        transcript.addEvaluation(proof.evaluations[1]);
+
+        challenges.v = transcript.getChallenge();
+        logger.info("··· v = ", Fr.toString(challenges.v));
 
         let polWxi = new Polynomial(new Uint8Array(polLen * Fr.n8), curve, logger);
+        let polWxiomega = new Polynomial(new Uint8Array(polLen * Fr.n8), curve, logger);
 
         polQ.divByXSubValue(challenges.xi);
         polWxi.add(polQ);
 
-        let currentAlpha = challenges.alpha;
-        const pols = [polF, polT];
+        polZ.subScalar(proof.evaluations[1]);
+        polZ.divByXSubValue(Fr.mul(challenges.xi, Fr.w[nBits]));
+        polWxiomega.add(polZ);
+
+        let currentV = challenges.v;
+        const pols = [polF]; // TODO: simplify
         for (let i = 0; i < pols.length; i++) {
             pols[i].subScalar(proof.evaluations[i]);
             pols[i].divByXSubValue(challenges.xi);
-            pols[i].mulScalar(currentAlpha);
+            pols[i].mulScalar(currentV);
 
             polWxi.add(pols[i]);
-            currentAlpha = Fr.mul(currentAlpha, challenges.alpha);
+            currentV = Fr.mul(currentV, challenges.v);
         }
 
         proof.commitWxi = await polWxi.multiExponentiation(PTau, "Wxi");
+        proof.commitWxiomega = await polWxiomega.multiExponentiation(PTau, "Wxiomega");
         logger.info("··· [Wxi(X)]_1 = ", curve.G1.toString(proof.commitWxi));
+        logger.info("··· [Wxiomega(X)]_1 = ", curve.G1.toString(proof.commitWxiomega));
     }
 }

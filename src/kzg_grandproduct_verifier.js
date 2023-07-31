@@ -24,9 +24,18 @@ module.exports = async function kzg_grandproduct_verifier(proof, pTauFilename, o
 
     let challenges = {};
 
-    // STEP 1. Calculate challenge xi from transcript
-    logger.info("> STEP 1. Compute challenge xi");
+    // STEP 1. Calculate challenge beta from transcript
+    logger.info("> STEP 1.1 Compute challenge beta");
     const transcript = new Keccak256Transcript(curve);
+    for (let i = 0; i < nPols; i++) {
+        transcript.addPolCommitment(proof.commitments[i]);
+    }
+    challenges.beta = transcript.getChallenge();
+    logger.info("··· beta = ", curve.Fr.toString(challenges.beta));
+
+    // STEP 1. Calculate challenge xi from transcript
+    logger.info("> STEP 1.2 Compute challenge xi");
+    transcript.reset();
     for (let i = 0; i < nPols; i++) {
         transcript.addPolCommitment(proof.commitments[i]);
     }
@@ -42,13 +51,19 @@ module.exports = async function kzg_grandproduct_verifier(proof, pTauFilename, o
     challenges.alpha = transcript.getChallenge();
     logger.info("··· alpha = ", curve.Fr.toString(challenges.alpha));
     
+
+
+    // STEP 3. Compute r0
+    const r0 = 
+
     // STEP 3. Compute [F]_1
-    let currentAlpha = curve.Fr.one;
+    // let currentAlpha = curve.Fr.one;
     let F = proof.commitmentQ;
-    for(let i = 0; i < nPols; i++) {
-        F = curve.G1.add(F, curve.G1.timesFr(proof.commitments[i], currentAlpha));
-        currentAlpha = curve.Fr.mul(currentAlpha, challenges.alpha);
-    }
+    // for(let i = 0; i < nPols; i++) {
+    //     F = curve.G1.add(F, curve.G1.timesFr(proof.commitments[i], currentAlpha));
+    //     currentAlpha = curve.Fr.mul(currentAlpha, challenges.alpha);
+    // }
+    F = curve.G1.add(F, curve.G1.timesFr(proof.commitments[0], challenges.alpha));
 
     // STEP 4. Compute [E]_1
     currentAlpha = curve.Fr.one;
@@ -92,26 +107,35 @@ module.exports = async function kzg_grandproduct_verifier(proof, pTauFilename, o
     return isValid;
 };
 
-// function calculateLagrangeEvaluations(curve, challenges, vk) {
-//     const Fr = curve.Fr;
+// TODO: Why some are put in challenges and others are returned?
+function calculateL1andZHEvaluation(curve, challenges, vk) {
+    const Fr = curve.Fr;
 
-//     let xin = challenges.xi;
-//     let domainSize = 1;
-//     for (let i=0; i<vk.power; i++) {
-//         xin = Fr.square(xin);
-//         domainSize *= 2;
-//     }
-//     challenges.xin = xin;
+    let xin = challenges.xi;
+    let domainSize = 1;
+    for (let i=0; i<vk.power; i++) {
+        xin = Fr.square(xin);
+        domainSize *= 2;
+    }
+    // challenges.xin = xin;
 
-//     challenges.zh = Fr.sub(xin, Fr.one);
-//     const L = [];
+    // challenges.zh = Fr.sub(xin, Fr.one);
+    const ZHxi = Fr.sub(xin, Fr.one);
 
-//     const n = Fr.e(domainSize);
-//     let w = Fr.one;
-//     for (let i=1; i<=Math.max(1, vk.nPublic); i++) {
-//         L[i] = Fr.div(Fr.mul(w, challenges.zh), Fr.mul(n, Fr.sub(challenges.xi, w)));
-//         w = Fr.mul(w, Fr.w[vk.power]);
-//     }
+    // const L = [];
 
-//     return L;
-// }
+    // const n = Fr.e(domainSize);
+    // let w = Fr.one;
+    // for (let i=0; i<=Math.max(1, vk.nPublic); i++) {
+    //     L[i] = Fr.div(Fr.mul(w, challenges.zh), Fr.mul(n, Fr.sub(challenges.xi, w)));
+    //     w = Fr.mul(w, Fr.w[vk.power]);
+    // }
+
+    // return L;
+
+    const n = Fr.e(domainSize);
+    const w = Fr.w[vk.power];
+    const L1xi = Fr.div(Fr.mul(w, ZHxi), Fr.mul(n, Fr.sub(challenges.xi, w)));
+
+    return { ZHxi, L1xi };
+}
