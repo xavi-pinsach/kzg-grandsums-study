@@ -54,11 +54,11 @@ module.exports = async function kzg_grandproduct_verifier(proof, pTauFilename, o
 
 
     // STEP 3. Compute r0
-    const r0 = 
+    // const r0 = 
 
     // STEP 3. Compute [F]_1
     // let currentAlpha = curve.Fr.one;
-    let F = proof.commitmentQ;
+    // let F = proof.commitmentQ;
     // for(let i = 0; i < nPols; i++) {
     //     F = curve.G1.add(F, curve.G1.timesFr(proof.commitments[i], currentAlpha));
     //     currentAlpha = curve.Fr.mul(currentAlpha, challenges.alpha);
