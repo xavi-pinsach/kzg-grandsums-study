@@ -88,9 +88,15 @@ module.exports = async function kzg_grandproduct_verifier(proof, nBits, pTauFile
 
     // STEP 4. Compute [D]_1
     logger.info("> STEP 4. Compute [D]₁");
-    let D1_1 = Fr.sub(
-        L1xi,
-        Fr.mul(challenges.alpha, Fr.add(proof.evaluations[0], challenges.gamma))
+    let D1_1 = Fr.add(
+        Fr.sub(
+            L1xi,
+            Fr.mul(
+                challenges.alpha,
+                Fr.add(proof.evaluations[0], challenges.gamma)
+            )
+        ),
+        challenges.u
     );
     D1_1 = G1.timesFr(proof.commitmentZ, D1_1);
     let D1_2 = Fr.mul(challenges.alpha, proof.evaluations[1]);
