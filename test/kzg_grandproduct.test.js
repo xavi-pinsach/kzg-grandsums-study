@@ -40,7 +40,7 @@ describe("grandsums-study", function () {
         const pTauFilename = path.join("tmp", "powersOfTau28_hez_final_11.ptau");
         const proof = await kzg_grandproduct_prover(evalsBufferA, evalsBufferB, pTauFilename, { logger });
 
-        const isValid = await kzg_grandproduct_verifier(proof, pTauFilename, { logger });
+        const isValid = await kzg_grandproduct_verifier(proof, length, pTauFilename, { logger });
         assert.ok(isValid);
     });
 });
