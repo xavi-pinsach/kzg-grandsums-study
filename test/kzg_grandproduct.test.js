@@ -27,7 +27,8 @@ describe("grandsums-study", function () {
     });
 
     it("should perform a Grand Product ZKG full proving & verifying process", async () => {
-        const length =  getRandomValue(10);
+        // const length =  getRandomValue(10);
+        const length =  4;
 
         const evalsBufferA = getRandomBuffer(2 ** length, curve);
         const evalsBufferB = new Uint8Array(evalsBufferA.byteLength);

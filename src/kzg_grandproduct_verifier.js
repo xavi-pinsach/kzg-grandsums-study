@@ -108,34 +108,19 @@ module.exports = async function kzg_grandproduct_verifier(proof, pTauFilename, o
 };
 
 // TODO: Why some are put in challenges and others are returned?
-function calculateL1andZHEvaluation(curve, challenges, vk) {
-    const Fr = curve.Fr;
+// function computeL1andZHEvaluation(curve, xi, nBits) {
+//     const Fr = curve.Fr;
 
-    let xin = challenges.xi;
-    let domainSize = 1;
-    for (let i=0; i<vk.power; i++) {
-        xin = Fr.square(xin);
-        domainSize *= 2;
-    }
-    // challenges.xin = xin;
+//     let xin = xi;
+//     for (let i = 0; i < nBits; i++) {
+//         xin = Fr.square(xin);
+//         domainSize *= 2;
+//     }
+//     const ZHxi = Fr.sub(xin, Fr.one);
 
-    // challenges.zh = Fr.sub(xin, Fr.one);
-    const ZHxi = Fr.sub(xin, Fr.one);
+//     const n = Fr.e(domainSize);
+//     const w = Fr.one;
+//     const L1xi = Fr.div(Fr.mul(w, ZHxi), Fr.mul(n, Fr.sub(xi, w)));
 
-    // const L = [];
-
-    // const n = Fr.e(domainSize);
-    // let w = Fr.one;
-    // for (let i=0; i<=Math.max(1, vk.nPublic); i++) {
-    //     L[i] = Fr.div(Fr.mul(w, challenges.zh), Fr.mul(n, Fr.sub(challenges.xi, w)));
-    //     w = Fr.mul(w, Fr.w[vk.power]);
-    // }
-
-    // return L;
-
-    const n = Fr.e(domainSize);
-    const w = Fr.w[vk.power];
-    const L1xi = Fr.div(Fr.mul(w, ZHxi), Fr.mul(n, Fr.sub(challenges.xi, w)));
-
-    return { ZHxi, L1xi };
-}
+//     return { ZHxi, L1xi };
+// }
