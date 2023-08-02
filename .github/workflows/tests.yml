@@ -1,0 +1,22 @@
+name: Tests
+on: [push, pull_request]
+env:
+    CARGO_TERM_COLOR: always
+jobs:
+    build:
+        runs-on: ubuntu-latest
+
+        steps:
+        - uses: actions/checkout@v2
+        
+        - name: Install dependencies
+          run: npm i
+
+        - name: Download file
+          run: |
+            mkdir -p tmp
+            cd tmp
+            curl -LO https://hermez.s3-eu-west-1.amazonaws.com/powersOfTau28_hez_final_11.ptau
+
+        - name: Run tests
+          run: npm test

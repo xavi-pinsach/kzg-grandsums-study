@@ -1,4 +1,5 @@
 # Grand Sums Study
+![Tests](https://github.com/xavi-pinsach/kzg-grandsums-study/actions/workflows/tests.yml/badge.svg)
 
 This repository is a study about the grand-sums proposal by Héctor Masip / Polygon zkEvm. It explores the concept and implementation of grand-sums instead grand-product.
 
