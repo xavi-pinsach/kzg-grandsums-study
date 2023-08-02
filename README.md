@@ -1,6 +1,6 @@
 # Grand Sums Study
 
-This repository is a study about the grand-sums proposal by Hector Masip / Polygon zkEvm. It explores the concept and implementation of grand-sums instead grand-product.
+This repository is a study about the grand-sums proposal by Héctor Masip / Polygon zkEvm. It explores the concept and implementation of grand-sums instead grand-product.
 
 ⚠️ **Warning: This Repository is for Study Purposes Only!** ⚠️
 

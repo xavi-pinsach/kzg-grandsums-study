@@ -14,7 +14,7 @@
         "knowledge",
         "study"
     ],
-    "author": "Xavier Pinsach",
+    "author": "Héctor Masip & Xavier Pinsach",
     "license": "ISC",
     "dependencies": {
         "@iden3/binfileutils": "^0.0.11",
