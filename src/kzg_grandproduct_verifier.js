@@ -97,7 +97,6 @@ module.exports = async function kzg_grandproduct_verifier(proof, nBits, pTauFile
         ),
         challenges.u
     );
-    D1_1 = Fr.add(D1_1, challenges.u);
     D1_1 = G1.timesFr(proof.commitmentZ, D1_1);
 
     let D1_2 = Fr.mul(challenges.alpha, proof.evaluations[1]);
