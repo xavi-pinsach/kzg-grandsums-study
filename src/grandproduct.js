@@ -8,7 +8,7 @@ module.exports = async function buildZGrandProduct(evaluationsF, evaluationsT, c
 
     const logger = options.logger;
 
-    if (logger) logger.info("··· Building Z Grand Product polynomial");
+    if (logger) logger.info("··· Building the grand-roduct polynomial Z");
 
     if(evalsF.byteLength !== evalsT.byteLength) {
         throw new Error("Polynomials must have the same size");
@@ -17,7 +17,6 @@ module.exports = async function buildZGrandProduct(evaluationsF, evaluationsT, c
     //Check polF and polT buffers length are the same
     const sFr = curve.Fr.n8;
     const n = evalsF.byteLength / sFr;
-
 
     let numArr = new BigBuffer(evalsF.byteLength);
     let denArr = new BigBuffer(evalsF.byteLength);
@@ -60,7 +59,7 @@ module.exports = async function buildZGrandProduct(evaluationsF, evaluationsT, c
     // From now on the values saved on numArr will be Z(X) evaluations buffer
 
     if (!curve.Fr.eq(numArr.slice(0, sFr), curve.Fr.one)) {
-        throw new Error("Z(X) grand product is not well calculated");
+        throw new Error("The grand-product Z is not well computed");
     }
 
     // Compute polynomial coefficients z(X) from buffers.Z

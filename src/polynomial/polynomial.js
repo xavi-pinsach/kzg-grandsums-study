@@ -783,6 +783,9 @@ module.exports.Polynomial = class Polynomial {
     }
 
     divZh(domainSize, extensions = 4) {
+        const length = 2 ** Math.ceil(Math.log2(this.degree() + 1 - domainSize));
+        const newBuffer = new Uint8Array(length * this.Fr.n8);
+
         for (let i = 0; i < domainSize; i++) {
             const i_n8 = i * this.Fr.n8;
             this.coef.set(
@@ -808,6 +811,9 @@ module.exports.Polynomial = class Polynomial {
                 }
             }
         }
+        newBuffer.set(this.coef.slice(0, (this.degree() + 1) * this.Fr.n8), 0);
+
+        this.coef = newBuffer;
 
         return this;
     }
