@@ -177,7 +177,7 @@ module.exports = async function kzg_grandproduct_prover(evalsBufferF, evalsBuffe
         transcript.addPolCommitment(proof.commitmentQ);
 
         challenges.xi = transcript.getChallenge();
-        logger.info("··· xi = ", Fr.toString(challenges.xi));
+        logger.info("··· 𝔷 = ", Fr.toString(challenges.xi));
 
         proof.evaluations = [];
         proof.evaluations[0] = polF.evaluate(challenges.xi);
@@ -197,6 +197,8 @@ module.exports = async function kzg_grandproduct_prover(evalsBufferF, evalsBuffe
         const evalsZ = await Evaluations.fromPolynomial(polZ, 1, curve, logger);
         const evalsQ = await Evaluations.fromPolynomial(polQ, 1, curve, logger);
         const { ZHxi, L1xi } = computeL1andZHEvaluation(curve, challenges.xi, nBits);
+        logger.info("··· ZH(𝔷) =", Fr.toString(ZHxi));
+        logger.info("··· L₁(𝔷) =", Fr.toString(L1xi));    
         const fxi = proof.evaluations[0];
         const zxiomega = proof.evaluations[1];
 

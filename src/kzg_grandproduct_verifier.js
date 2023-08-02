@@ -17,7 +17,6 @@ module.exports = async function kzg_grandproduct_verifier(proof, nBits, pTauFile
     const G2 = curve.G2;
 
     const nPols = proof.commitments.length;
-    const nEvals = proof.evaluations.length;
     if (logger) {
         logger.info("---------------------------------------");
         logger.info("  KZG GRAND PRODUCT VERIFIER SETTINGS");
@@ -54,9 +53,9 @@ module.exports = async function kzg_grandproduct_verifier(proof, nBits, pTauFile
     // STEP 1.4 Calculate challenge v from transcript
     logger.info("> STEP 1.4. Compute challenge v");
     transcript.reset();
-    for (let i = 0; i < nEvals; i++) {
-        transcript.addEvaluation(proof.evaluations[i]);
-    }
+    transcript.addEvaluation(proof.evaluations[0]);
+    transcript.addEvaluation(proof.evaluations[1]);
+
     challenges.v = transcript.getChallenge();
     logger.info("··· v = ", Fr.toString(challenges.v));
 
@@ -98,17 +97,21 @@ module.exports = async function kzg_grandproduct_verifier(proof, nBits, pTauFile
         ),
         challenges.u
     );
+    D1_1 = Fr.add(D1_1, challenges.u);
     D1_1 = G1.timesFr(proof.commitmentZ, D1_1);
+
     let D1_2 = Fr.mul(challenges.alpha, proof.evaluations[1]);
     D1_2 = G1.timesFr(proof.commitments[1], D1_2);
     const D1_3 = G1.timesFr(proof.commitmentQ, ZHxi);
-    const D1 = G1.add(D1_1, G1.sub(D1_2, D1_3));
+    let D1 = G1.add(D1_1, G1.sub(D1_2, D1_3));
+
     logger.info("··· [D]₁ =", G1.toString(D1));
 
     // STEP 5. Compute [F]_1
     logger.info("> STEP 5. Compute [F]₁");
     let F1 = G1.timesFr(proof.commitments[0], challenges.v);
     F1 = G1.add(D1, F1);
+
     logger.info("··· [F]₁ =", G1.toString(F1));
 
     // STEP 6. Compute [E]_1
@@ -121,6 +124,7 @@ module.exports = async function kzg_grandproduct_verifier(proof, nBits, pTauFile
         r0
     );
     E1 = G1.timesFr(G1.one, E1);
+
     logger.info("··· [E]₁ =", G1.toString(E1));
 
     // STEP 7. Check the pairing equation
@@ -138,7 +142,7 @@ module.exports = async function kzg_grandproduct_verifier(proof, nBits, pTauFile
     B1 = G1.sub(B1, E1);
     const B2 = G2.one;
 
-    const isValid = await curve.pairingEq(A1, A2, B1, B2);
+    const isValid = await curve.pairingEq(G1.neg(A1), A2, B1, B2);
 
     if (logger) {
         if (isValid) {
