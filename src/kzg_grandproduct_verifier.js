@@ -134,30 +134,30 @@ module.exports = async function kzg_grandproduct_verifier(proof, nBits, pTauFile
 
         // STEP 1.2 Calculate challenge alpha from transcript
         logger.info("> STEP 1.2. Compute challenge 𝜶");
-        transcript.addEvaluation(challenges.gamma);
+        transcript.addFieldElement(challenges.gamma);
         transcript.addPolCommitment(proof.commitmentZ);
         challenges.alpha = transcript.getChallenge();
         logger.info("··· 𝜶 = ", Fr.toString(challenges.alpha));
 
         // STEP 1.3 Calculate challenge 𝔷 from transcript
         logger.info("> STEP 1.3. Compute challenge 𝔷");
-        transcript.addEvaluation(challenges.alpha);
+        transcript.addFieldElement(challenges.alpha);
         transcript.addPolCommitment(proof.commitmentQ);
         challenges.xi = transcript.getChallenge();
         logger.info("··· 𝔷 = ", Fr.toString(challenges.xi));
         
         // STEP 1.4 Calculate challenge v from transcript
         logger.info("> STEP 1.4. Compute challenge v");
-        transcript.addEvaluation(challenges.xi);
-        transcript.addEvaluation(proof.evaluations[0]);
-        transcript.addEvaluation(proof.evaluations[1]);
+        transcript.addFieldElement(challenges.xi);
+        transcript.addFieldElement(proof.evaluations[0]);
+        transcript.addFieldElement(proof.evaluations[1]);
 
         challenges.v = transcript.getChallenge();
         logger.info("··· v = ", Fr.toString(challenges.v));
 
         // STEP 1.5 Calculate challenge u from transcript
         logger.info("> STEP 1.5. Compute challenge u");
-        transcript.addEvaluation(challenges.v);
+        transcript.addFieldElement(challenges.v);
         transcript.addPolCommitment(proof.commitWxi);
         transcript.addPolCommitment(proof.commitWxiomega);
         challenges.u = transcript.getChallenge();

@@ -120,7 +120,7 @@ module.exports = async function kzg_grandproduct_prover(evalsBufferF, evalsBuffe
     }
 
     async function computeQPolynomial() {
-        transcript.addEvaluation(challenges.gamma);
+        transcript.addFieldElement(challenges.gamma);
         transcript.addPolCommitment(proof.commitmentZ);
 
         challenges.alpha = transcript.getChallenge();
@@ -173,7 +173,7 @@ module.exports = async function kzg_grandproduct_prover(evalsBufferF, evalsBuffe
     }
 
     function computeEvaluations() {
-        transcript.addEvaluation(challenges.alpha);
+        transcript.addFieldElement(challenges.alpha);
         transcript.addPolCommitment(proof.commitmentQ);
 
         challenges.xi = transcript.getChallenge();
@@ -188,9 +188,9 @@ module.exports = async function kzg_grandproduct_prover(evalsBufferF, evalsBuffe
     }
 
     async function computeW() {
-        transcript.addEvaluation(challenges.xi);
-        transcript.addEvaluation(proof.evaluations[0]);
-        transcript.addEvaluation(proof.evaluations[1]);
+        transcript.addFieldElement(challenges.xi);
+        transcript.addFieldElement(proof.evaluations[0]);
+        transcript.addFieldElement(proof.evaluations[1]);
 
         // Compute the linearisation polynomial r
         const evalsBufferR = new Uint8Array(domainSize * Fr.n8);

@@ -20,7 +20,7 @@ module.exports.Keccak256Transcript = class Keccak256Transcript {
         this.data.push({type: POLYNOMIAL, data: polynomialCommitment});
     }
 
-    addEvaluation(scalar) {
+    addFieldElement(scalar) {
         this.data.push({type: SCALAR, data: scalar});
     }
 
