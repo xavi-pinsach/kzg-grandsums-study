@@ -1,7 +1,7 @@
 # Grand Sums Study
 ![Tests](https://github.com/xavi-pinsach/kzg-grandsums-study/actions/workflows/tests.yml/badge.svg)
 
-This repository is a study about the grand-sums proposal by Héctor Masip / Polygon zkEvm. It explores the concept and implementation of grand-sums instead grand-product.
+This repository is a study about the grand-sums proposal by [Héctor Masip](https://hecmas.github.io/) / Polygon zkEvm. It explores the concept and implementation of grand-sums instead grand-product.
 
 To be able to compare the performance of grand-sums and grand-product, we have implemented both. The grand-product protocol can be found [here](https://hackmd.io/-5URcycYTlOgJTt3rCMrpw).
 
@@ -11,7 +11,7 @@ Please note that this repository is intended for study and experimental purposes
 
 ## Overview
 
-The purpose of this study is to analyze and understand the grand-sums concept proposed by Hector Masip. It provides a implementation of grand sums in JavaScript, allowing developers to explore and experiment with the concept.
+The purpose of this study is to analyze and understand the grand-sums concept proposed by [Héctor Masip](https://hecmas.github.io/). It provides a implementation of grand sums in JavaScript, allowing developers to explore and experiment with the concept.
 
 ## Contents
 

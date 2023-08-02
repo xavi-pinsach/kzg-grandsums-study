@@ -27,46 +27,9 @@ module.exports = async function kzg_grandproduct_verifier(proof, nBits, pTauFile
 
     let challenges = {};
 
-    // STEP 1.1 Calculate challenge beta from transcript
-    logger.info("> STEP 1.1. Compute challenge gamma");
-    const transcript = new Keccak256Transcript(curve);
-    for (let i = 0; i < nPols; i++) {
-        transcript.addPolCommitment(proof.commitments[i]);
-    }
-    challenges.gamma = transcript.getChallenge();
-    logger.info("··· gamma = ", Fr.toString(challenges.gamma));
-
-    // STEP 1.2 Calculate challenge alpha from transcript
-    logger.info("> STEP 1.2. Compute challenge alpha");
-    transcript.reset();
-    transcript.addPolCommitment(proof.commitmentZ);
-    challenges.alpha = transcript.getChallenge();
-    logger.info("··· alpha = ", Fr.toString(challenges.alpha));
-
-    // STEP 1.3 Calculate challenge 𝔷 from transcript
-    logger.info("> STEP 1.3. Compute challenge 𝔷");
-    transcript.reset();
-    transcript.addPolCommitment(proof.commitmentQ);
-    challenges.xi = transcript.getChallenge();
-    logger.info("··· 𝔷 = ", Fr.toString(challenges.xi));
-    
-    // STEP 1.4 Calculate challenge v from transcript
-    logger.info("> STEP 1.4. Compute challenge v");
-    transcript.reset();
-    transcript.addEvaluation(proof.evaluations[0]);
-    transcript.addEvaluation(proof.evaluations[1]);
-
-    challenges.v = transcript.getChallenge();
-    logger.info("··· v = ", Fr.toString(challenges.v));
-
-    // STEP 1.5 Calculate challenge u from transcript
-    logger.info("> STEP 1.5. Compute challenge u");
-    transcript.reset();
-    transcript.addPolCommitment(proof.commitWxi);
-    transcript.addPolCommitment(proof.commitWxiomega);
-    challenges.u = transcript.getChallenge();
-    logger.info("··· u = ", Fr.toString(challenges.u));
-
+    // STEP 1 Calculate challenge beta from transcript
+    logger.info("> STEP 1. Compute 𝜸,𝜶,𝔷,v,u");
+    computeChallenges();
 
     // STEP 2. Compute ZH(𝔷) and L1(𝔷)
     logger.info("> STEP 2. Compute ZH(𝔷) and L₁(𝔷)");
@@ -100,7 +63,7 @@ module.exports = async function kzg_grandproduct_verifier(proof, nBits, pTauFile
     D1_1 = G1.timesFr(proof.commitmentZ, D1_1);
 
     let D1_2 = Fr.mul(challenges.alpha, proof.evaluations[1]);
-    D1_2 = G1.timesFr(proof.commitments[1], D1_2);
+    D1_2 = G1.timesFr(proof.commitmentT, D1_2);
     const D1_3 = G1.timesFr(proof.commitmentQ, ZHxi);
     let D1 = G1.add(D1_1, G1.sub(D1_2, D1_3));
 
@@ -108,7 +71,7 @@ module.exports = async function kzg_grandproduct_verifier(proof, nBits, pTauFile
 
     // STEP 5. Compute [F]_1
     logger.info("> STEP 5. Compute [F]₁");
-    let F1 = G1.timesFr(proof.commitments[0], challenges.v);
+    let F1 = G1.timesFr(proof.commitmentF, challenges.v);
     F1 = G1.add(D1, F1);
 
     logger.info("··· [F]₁ =", G1.toString(F1));
@@ -159,6 +122,47 @@ module.exports = async function kzg_grandproduct_verifier(proof, nBits, pTauFile
     await fdPTau.close();
 
     return isValid;
+
+    function computeChallenges() {
+        // STEP 1.1 Calculate challenge gamma from transcript
+        logger.info("> STEP 1.1. Compute challenge 𝜸");
+        const transcript = new Keccak256Transcript(curve);
+        transcript.addPolCommitment(proof.commitmentF);
+        transcript.addPolCommitment(proof.commitmentT);
+        challenges.gamma = transcript.getChallenge();
+        logger.info("··· 𝜸 = ", Fr.toString(challenges.gamma));
+
+        // STEP 1.2 Calculate challenge alpha from transcript
+        logger.info("> STEP 1.2. Compute challenge 𝜶");
+        transcript.addEvaluation(challenges.gamma);
+        transcript.addPolCommitment(proof.commitmentZ);
+        challenges.alpha = transcript.getChallenge();
+        logger.info("··· 𝜶 = ", Fr.toString(challenges.alpha));
+
+        // STEP 1.3 Calculate challenge 𝔷 from transcript
+        logger.info("> STEP 1.3. Compute challenge 𝔷");
+        transcript.addEvaluation(challenges.alpha);
+        transcript.addPolCommitment(proof.commitmentQ);
+        challenges.xi = transcript.getChallenge();
+        logger.info("··· 𝔷 = ", Fr.toString(challenges.xi));
+        
+        // STEP 1.4 Calculate challenge v from transcript
+        logger.info("> STEP 1.4. Compute challenge v");
+        transcript.addEvaluation(challenges.xi);
+        transcript.addEvaluation(proof.evaluations[0]);
+        transcript.addEvaluation(proof.evaluations[1]);
+
+        challenges.v = transcript.getChallenge();
+        logger.info("··· v = ", Fr.toString(challenges.v));
+
+        // STEP 1.5 Calculate challenge u from transcript
+        logger.info("> STEP 1.5. Compute challenge u");
+        transcript.addEvaluation(challenges.v);
+        transcript.addPolCommitment(proof.commitWxi);
+        transcript.addPolCommitment(proof.commitWxiomega);
+        challenges.u = transcript.getChallenge();
+        logger.info("··· u = ", Fr.toString(challenges.u));
+    }
 };
 
 function computeL1andZHEvaluation(curve, eval, nBits) {
