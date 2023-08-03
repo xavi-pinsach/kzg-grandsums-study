@@ -49,61 +49,43 @@ module.exports = async function kzg_grandproduct_verifier(proof, nBits, pTauFile
     logger.info("··· ZH(𝔷) =", Fr.toString(ZHxi));
     logger.info("··· L₁(𝔷) =", Fr.toString(L1xi));
 
-    // STEP 5. Compute r0
+    // STEP 5. Compute r₀ := α⋅γ⋅z(𝔷·𝛚) - L₁(𝔷)
     logger.info("> STEP 5. Compute r₀");
-    const r0 = Fr.sub(
-        Fr.mul(
-            Fr.mul(challenges.alpha, challenges.gamma),
-            proof.evaluations["zxiw"]
-        ),
-        L1xi
-    );
+    let r0 = Fr.mul(Fr.mul(challenges.alpha, challenges.gamma), proof.evaluations["zxiw"]);
+    r0 = Fr.sub(r0, L1xi);
     logger.info("··· r₀ =", Fr.toString(r0));
 
-    // STEP 6. Compute [D]_1
+    // STEP 6. Compute [D]_1 := [r'(x)]₁ + u·[Z(x)]₁, where r'(x) = r(x)-r₀
+    // thus, [D]_1 = (L₁(𝔷) - α⋅(f(𝔷) + γ) + u)·[Z(x)]₁ + α⋅Z(𝔷·𝛚)·[t(x)]₁ - Z_H(𝔷)·[Q(x)]₁
     logger.info("> STEP 6. Compute [D]₁");
-    let D1_1 = Fr.add(
-        Fr.sub(
-            L1xi,
-            Fr.mul(
-                challenges.alpha,
-                Fr.add(proof.evaluations["fxi"], challenges.gamma)
-            )
-        ),
-        challenges.u
-    );
+    let D1_12 = Fr.mul(challenges.alpha, Fr.add(proof.evaluations["fxi"], challenges.gamma));
+    let D1_1 = Fr.add(Fr.sub(L1xi, D1_12), challenges.u);
     D1_1 = G1.timesFr(proof.commitments["Z"], D1_1);
 
     let D1_2 = Fr.mul(challenges.alpha, proof.evaluations["zxiw"]);
     D1_2 = G1.timesFr(proof.commitments["T"], D1_2);
-    const D1_3 = G1.timesFr(proof.commitments["Q"], ZHxi);
-    let D1 = G1.add(D1_1, G1.sub(D1_2, D1_3));
 
+    const D1_3 = G1.timesFr(proof.commitments["Q"], ZHxi);
+
+    let D1 = G1.add(D1_1, G1.sub(D1_2, D1_3));
     logger.info("··· [D]₁ =", G1.toString(G1.toAffine(D1)));
 
-    // STEP 7. Compute [F]_1
+    // STEP 7. Compute [F]_1 := [D]_1 + v·[f(x)]₁
     logger.info("> STEP 7. Compute [F]₁");
     let F1 = G1.timesFr(proof.commitments["F"], challenges.v);
     F1 = G1.add(D1, F1);
-
     logger.info("··· [F]₁ =", G1.toString(G1.toAffine(F1)));
 
-    // STEP 8. Compute [E]_1
+    // STEP 8. Compute [E]_1 := (-r₀ + v·f(𝔷) + u·Z(𝔷·𝛚))·[1]_1
     logger.info("> STEP 8. Compute [E]₁");
-    let E1 = Fr.sub(
-        Fr.add(
-            Fr.mul(challenges.v, proof.evaluations["fxi"]),
-            Fr.mul(challenges.u, proof.evaluations["zxiw"])
-        ),
-        r0
-    );
+    const E1_2 = Fr.mul(challenges.v, proof.evaluations["fxi"]);
+    const E1_3 = Fr.mul(challenges.u, proof.evaluations["zxiw"]);
+    let E1 = Fr.sub(Fr.add(E1_2, E1_3), r0);
     E1 = G1.timesFr(G1.one, E1);
-
     logger.info("··· [E]₁ =", G1.toString(G1.toAffine(E1)));
 
     // STEP 9. Check the pairing equation
-    logger.info("> STEP 9. Check pairing equation:\n" + " ".repeat(12) +
-    "e(-[W𝔷(x)]₁ - u·[W𝔷·𝛚(x)]₁, [x]₂)·e(𝔷·[W𝔷(x)]₁ + u𝔷ω·[W𝔷·𝛚(x)]₁ + [F]₁ - [E]₁, [1]₂) = 1");
+    logger.info("> STEP 9. Check pairing equation e(-[W𝔷(x)]₁ - u·[W𝔷·𝛚(x)]₁, [x]₂)·e(𝔷·[W𝔷(x)]₁ + u𝔷ω·[W𝔷·𝛚(x)]₁ + [F]₁ - [E]₁, [1]₂) = 1");
 
     let A1 = G1.timesFr(proof.commitments["Wxiw"], challenges.u);
     A1 = G1.add(proof.commitments["Wxi"], A1);
@@ -120,14 +102,9 @@ module.exports = async function kzg_grandproduct_verifier(proof, nBits, pTauFile
     const isValid = await curve.pairingEq(G1.neg(A1), A2, B1, B2);
 
     if (logger) {
-        if (isValid) {
-            logger.info("> VERIFICATION OK");
-        } else {
-            logger.error("> VERIFICATION FAILED");
-        }
-    }
+        if (isValid) logger.info("> VERIFICATION OK");
+        else logger.error("> VERIFICATION FAILED");
 
-    if (logger) {
         logger.info("");
         logger.info("> KZG BASIC VERIFIER FINISHED");
     }
