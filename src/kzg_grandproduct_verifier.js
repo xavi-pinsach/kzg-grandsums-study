@@ -31,28 +31,17 @@ module.exports = async function kzg_grandproduct_verifier(proof, nBits, pTauFile
 
     // STEP 1 Validate the corretness of the proof elements
     logger.info("> STEP 1. Validate [f(x)]₁,[t(x)]₁,[Z(x)]₁,[Q(x)]₁,[W𝔷(x)]₁,[W𝔷·𝛚(x)]₁ ∈ 𝔾₁");
-    if (
-        !G1.isValid(proof.commitmentF) ||
-        !G1.isValid(proof.commitmentT) ||
-        !G1.isValid(proof.commitmentZ) ||
-        !G1.isValid(proof.commitmentQ) ||
-        !G1.isValid(proof.commitmentWxi) ||
-        !G1.isValid(proof.commitmentWxiomega)
-    ) {
-        logger.error("··· ERROR: Invalid commitment(s)");
+    const commitmentsAreValid = validateCommitments();
+    if (!commitmentsAreValid) {
         return false;
     }
 
     // STEP 2 Validate the corretness of the proof elements
     logger.info("> STEP 2. Validate f(𝔷),Z(𝔷·𝛚) ∈ 𝔽");
-    if (
-        !Scalar.lt(Scalar.fromRprLE(proof.evaluations[0]), Fr.p) ||
-        !Scalar.lt(Scalar.fromRprLE(proof.evaluations[1]), Fr.p)
-    ) {
-        logger.error("··· ERROR: Invalid evaluation(s)");
+    const evalsAreValid = validateEvaluations();
+    if (!evalsAreValid) {
         return false;
     }
-
 
     // STEP 3 Calculate challenge beta from transcript
     logger.info("> STEP 3. Compute 𝜸,𝜶,𝔷,v,u");
@@ -152,6 +141,42 @@ module.exports = async function kzg_grandproduct_verifier(proof, nBits, pTauFile
     await fdPTau.close();
 
     return isValid;
+
+    function validateCommitments() {
+        let valid = true;
+        if (!G1.isValid(proof.commitmentF)) {
+            logger.error("··· ERROR: [f(x)]₁ is not valid", G1.toString(proof.commitmentF));
+            valid = false;
+        } else if (!G1.isValid(proof.commitmentT)) {
+            logger.error("··· ERROR: [t(x)]₁ is not valid", G1.toString(proof.commitmentT));
+            valid = false;
+        } else if (!G1.isValid(proof.commitmentZ)) {
+            logger.error("··· ERROR: [Z(x)]₁ is not valid", G1.toString(proof.commitmentZ));
+            valid = false;
+        } else if (!G1.isValid(proof.commitmentQ)) {
+            logger.error("··· ERROR: [Q(x)]₁ is not valid", G1.toString(proof.commitmentQ));
+            valid = false;
+        } else if (!G1.isValid(proof.commitmentWxi)) {
+            logger.error("··· ERROR: [W𝔷(x)]₁ is not valid", G1.toString(proof.commitmentWxi));
+            valid = false;
+        } else if (!G1.isValid(proof.commitmentWxiomega)) {
+            logger.error("··· ERROR: [W𝔷·𝛚(x)]₁ is not valid", G1.toString(proof.commitmentWxiomega));
+            valid = false;
+        }
+        return valid;
+    }
+
+    function validateEvaluations() {
+        let valid = true;
+        if (!Scalar.lt(Scalar.fromRprLE(proof.evaluations[0]), Fr.p)) {
+            logger.error("··· ERROR: f(𝔷) is not valid", Fr.toString(proof.evaluations[0]));
+            valid = false;
+        } else if (!Scalar.lt(Scalar.fromRprLE(proof.evaluations[1]), Fr.p)) {
+            logger.error("··· ERROR: Z(𝔷·𝛚) is not valid", Fr.toString(proof.evaluations[1]));
+            valid = false;
+        }
+        return valid;
+    }
 
     function computeChallenges() {
         // STEP 1.1 Calculate challenge gamma from transcript
