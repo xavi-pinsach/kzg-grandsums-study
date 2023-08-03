@@ -32,7 +32,6 @@ describe("grandsums-study", function () {
         const evalsBufferA = getRandomBuffer(2 ** nBits, curve);
         const evalsBufferB = new Uint8Array(evalsBufferA.byteLength);
 
-        // TODO mix the array elements?
         evalsBufferB.set(evalsBufferA.slice(0, evalsBufferA.byteLength - curve.Fr.n8), curve.Fr.n8);
         evalsBufferB.set(evalsBufferA.slice(evalsBufferA.byteLength - curve.Fr.n8, evalsBufferA.byteLength), 0);
 

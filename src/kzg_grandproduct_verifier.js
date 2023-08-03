@@ -31,17 +31,11 @@ module.exports = async function kzg_grandproduct_verifier(proof, nBits, pTauFile
 
     // STEP 1 Validate the corretness of the proof elements
     logger.info("> STEP 1. Validate [f(x)]₁,[t(x)]₁,[Z(x)]₁,[Q(x)]₁,[W𝔷(x)]₁,[W𝔷·𝛚(x)]₁ ∈ 𝔾₁");
-    const commitmentsAreValid = validateCommitments();
-    if (!commitmentsAreValid) {
-        return false;
-    }
+    if(!validateCommitments()) return false;
 
     // STEP 2 Validate the corretness of the proof elements
     logger.info("> STEP 2. Validate f(𝔷),Z(𝔷·𝛚) ∈ 𝔽");
-    const evalsAreValid = validateEvaluations();
-    if (!evalsAreValid) {
-        return false;
-    }
+    if(!validateEvaluations()) return false;
 
     // STEP 3 Calculate challenge beta from transcript
     logger.info("> STEP 3. Compute 𝜸,𝜶,𝔷,v,u");
@@ -60,7 +54,7 @@ module.exports = async function kzg_grandproduct_verifier(proof, nBits, pTauFile
     const r0 = Fr.sub(
         Fr.mul(
             Fr.mul(challenges.alpha, challenges.gamma),
-            proof.evaluations[1]
+            proof.evaluations["zxiw"]
         ),
         L1xi
     );
@@ -73,23 +67,23 @@ module.exports = async function kzg_grandproduct_verifier(proof, nBits, pTauFile
             L1xi,
             Fr.mul(
                 challenges.alpha,
-                Fr.add(proof.evaluations[0], challenges.gamma)
+                Fr.add(proof.evaluations["fxi"], challenges.gamma)
             )
         ),
         challenges.u
     );
-    D1_1 = G1.timesFr(proof.commitmentZ, D1_1);
+    D1_1 = G1.timesFr(proof.commitments["Z"], D1_1);
 
-    let D1_2 = Fr.mul(challenges.alpha, proof.evaluations[1]);
-    D1_2 = G1.timesFr(proof.commitmentT, D1_2);
-    const D1_3 = G1.timesFr(proof.commitmentQ, ZHxi);
+    let D1_2 = Fr.mul(challenges.alpha, proof.evaluations["zxiw"]);
+    D1_2 = G1.timesFr(proof.commitments["T"], D1_2);
+    const D1_3 = G1.timesFr(proof.commitments["Q"], ZHxi);
     let D1 = G1.add(D1_1, G1.sub(D1_2, D1_3));
 
     logger.info("··· [D]₁ =", G1.toString(G1.toAffine(D1)));
 
     // STEP 7. Compute [F]_1
     logger.info("> STEP 7. Compute [F]₁");
-    let F1 = G1.timesFr(proof.commitmentF, challenges.v);
+    let F1 = G1.timesFr(proof.commitments["F"], challenges.v);
     F1 = G1.add(D1, F1);
 
     logger.info("··· [F]₁ =", G1.toString(G1.toAffine(F1)));
@@ -98,8 +92,8 @@ module.exports = async function kzg_grandproduct_verifier(proof, nBits, pTauFile
     logger.info("> STEP 8. Compute [E]₁");
     let E1 = Fr.sub(
         Fr.add(
-            Fr.mul(challenges.v, proof.evaluations[0]),
-            Fr.mul(challenges.u, proof.evaluations[1])
+            Fr.mul(challenges.v, proof.evaluations["fxi"]),
+            Fr.mul(challenges.u, proof.evaluations["zxiw"])
         ),
         r0
     );
@@ -111,14 +105,14 @@ module.exports = async function kzg_grandproduct_verifier(proof, nBits, pTauFile
     logger.info("> STEP 9. Check pairing equation:\n" + " ".repeat(12) +
     "e(-[W𝔷(x)]₁ - u·[W𝔷·𝛚(x)]₁, [x]₂)·e(𝔷·[W𝔷(x)]₁ + u𝔷ω·[W𝔷·𝛚(x)]₁ + [F]₁ - [E]₁, [1]₂) = 1");
 
-    let A1 = G1.timesFr(proof.commitmentWxiomega, challenges.u);
-    A1 = G1.add(proof.commitmentWxi, A1);
+    let A1 = G1.timesFr(proof.commitments["Wxiw"], challenges.u);
+    A1 = G1.add(proof.commitments["Wxi"], A1);
     const sG2 = G2.F.n8 * 2;
     const A2 = await fdPTau.read(sG2, pTauSections[3][0].p + sG2);
 
     let B1 = Fr.mul(Fr.mul(challenges.u, challenges.xi), Fr.w[nBits]);
-    B1 = G1.timesFr(proof.commitmentWxiomega, B1);
-    B1 = G1.add(G1.timesFr(proof.commitmentWxi, challenges.xi), B1);
+    B1 = G1.timesFr(proof.commitments["Wxiw"], B1);
+    B1 = G1.add(G1.timesFr(proof.commitments["Wxi"], challenges.xi), B1);
     B1 = G1.add(B1, F1);
     B1 = G1.sub(B1, E1);
     const B2 = G2.one;
@@ -142,70 +136,66 @@ module.exports = async function kzg_grandproduct_verifier(proof, nBits, pTauFile
 
     return isValid;
 
+    function valueBelongsToField(name, value) {
+        const belongs = Scalar.lt(Scalar.fromRprLE(value), Fr.p);
+        if (!belongs) 
+            logger.error(`··· ERROR: ${name} is not a valid field element`, Fr.toString(value));
+        return belongs;
+    }
+
+    function valueBelongsToGroup1(name, value) {
+        const belongs = G1.isValid(value);
+        if (!belongs)
+            logger.error(`··· ERROR: ${name} is not valid`, G1.toString(value));
+        return belongs;
+    }
+
     function validateCommitments() {
-        let valid = true;
-        if (!G1.isValid(proof.commitmentF)) {
-            logger.error("··· ERROR: [f(x)]₁ is not valid", G1.toString(proof.commitmentF));
-            valid = false;
-        } else if (!G1.isValid(proof.commitmentT)) {
-            logger.error("··· ERROR: [t(x)]₁ is not valid", G1.toString(proof.commitmentT));
-            valid = false;
-        } else if (!G1.isValid(proof.commitmentZ)) {
-            logger.error("··· ERROR: [Z(x)]₁ is not valid", G1.toString(proof.commitmentZ));
-            valid = false;
-        } else if (!G1.isValid(proof.commitmentQ)) {
-            logger.error("··· ERROR: [Q(x)]₁ is not valid", G1.toString(proof.commitmentQ));
-            valid = false;
-        } else if (!G1.isValid(proof.commitmentWxi)) {
-            logger.error("··· ERROR: [W𝔷(x)]₁ is not valid", G1.toString(proof.commitmentWxi));
-            valid = false;
-        } else if (!G1.isValid(proof.commitmentWxiomega)) {
-            logger.error("··· ERROR: [W𝔷·𝛚(x)]₁ is not valid", G1.toString(proof.commitmentWxiomega));
-            valid = false;
-        }
-        return valid;
+        return (
+            valueBelongsToGroup1("[f(x)]₁", proof.commitments["F"]) &&
+            valueBelongsToGroup1("[t(x)]₁", proof.commitments["T"]) &&
+            valueBelongsToGroup1("[Z(x)]₁", proof.commitments["Z"]) &&
+            valueBelongsToGroup1("[Q(x)]₁", proof.commitments["Q"]) &&
+            valueBelongsToGroup1("[W𝔷(x)]₁", proof.commitments["Wxi"]) &&
+            valueBelongsToGroup1("[W𝔷·𝛚(x)]₁", proof.commitments["Wxiw"])
+        );
     }
 
     function validateEvaluations() {
-        let valid = true;
-        if (!Scalar.lt(Scalar.fromRprLE(proof.evaluations[0]), Fr.p)) {
-            logger.error("··· ERROR: f(𝔷) is not valid", Fr.toString(proof.evaluations[0]));
-            valid = false;
-        } else if (!Scalar.lt(Scalar.fromRprLE(proof.evaluations[1]), Fr.p)) {
-            logger.error("··· ERROR: Z(𝔷·𝛚) is not valid", Fr.toString(proof.evaluations[1]));
-            valid = false;
-        }
-        return valid;
+        return (
+            valueBelongsToField("f(𝔷)", proof.evaluations["fxi"]) &&
+            valueBelongsToField("Z(𝔷·𝛚)", proof.evaluations["zxiw"])
+        );
     }
 
     function computeChallenges() {
         // STEP 1.1 Calculate challenge gamma from transcript
         // logger.info("> STEP 3.1. Compute challenge 𝜸");
         const transcript = new Keccak256Transcript(curve);
-        transcript.addPolCommitment(proof.commitmentF);
-        transcript.addPolCommitment(proof.commitmentT);
+        transcript.addPolCommitment(proof.commitments["F"]);
+        transcript.addPolCommitment(proof.commitments["T"]);
         challenges.gamma = transcript.getChallenge();
         logger.info("··· 𝜸 = ", Fr.toString(challenges.gamma));
 
         // STEP 1.2 Calculate challenge alpha from transcript
         // logger.info("> STEP 3.2. Compute challenge 𝜶");
         transcript.addFieldElement(challenges.gamma);
-        transcript.addPolCommitment(proof.commitmentZ);
+        transcript.addPolCommitment(proof.commitments["Z"]);
         challenges.alpha = transcript.getChallenge();
         logger.info("··· 𝜶 = ", Fr.toString(challenges.alpha));
 
         // STEP 1.3 Calculate challenge 𝔷 from transcript
         // logger.info("> STEP 3.3. Compute challenge 𝔷");
         transcript.addFieldElement(challenges.alpha);
-        transcript.addPolCommitment(proof.commitmentQ);
+        transcript.addPolCommitment(proof.commitments["Q"]);
         challenges.xi = transcript.getChallenge();
         logger.info("··· 𝔷 = ", Fr.toString(challenges.xi));
         
         // STEP 1.4 Calculate challenge v from transcript
         // logger.info("> STEP 3.4. Compute challenge v");
         transcript.addFieldElement(challenges.xi);
-        transcript.addFieldElement(proof.evaluations[0]);
-        transcript.addFieldElement(proof.evaluations[1]);
+        transcript.addFieldElement(proof.evaluations["fxi"]);
+        transcript.addFieldElement(proof.evaluations["zxiw"]);
 
         challenges.v = transcript.getChallenge();
         logger.info("··· v = ", Fr.toString(challenges.v));
@@ -213,8 +203,8 @@ module.exports = async function kzg_grandproduct_verifier(proof, nBits, pTauFile
         // STEP 1.5 Calculate challenge u from transcript
         // logger.info("> STEP 3.5. Compute challenge u");
         transcript.addFieldElement(challenges.v);
-        transcript.addPolCommitment(proof.commitmentWxi);
-        transcript.addPolCommitment(proof.commitmentWxiomega);
+        transcript.addPolCommitment(proof.commitments["Wxi"]);
+        transcript.addPolCommitment(proof.commitments["Wxiw"]);
         challenges.u = transcript.getChallenge();
         logger.info("··· u = ", Fr.toString(challenges.u));
     }
