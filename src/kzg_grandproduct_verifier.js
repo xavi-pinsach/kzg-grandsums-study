@@ -22,8 +22,8 @@ module.exports = async function kzg_grandproduct_verifier(proof, nBits, pTauFile
     if (logger) {
         logger.info("---------------------------------------");
         logger.info("  KZG GRAND PRODUCT VERIFIER SETTINGS");
-        logger.info(`  Curve:        ${curve.name}`);
-        logger.info(`  #polynomials: ${nPols}`);
+        logger.info(`  Curve:       ${curve.name}`);
+        logger.info(`  Domain size: ${2 ** nBits}`);
         logger.info("---------------------------------------");
     }
 
@@ -53,7 +53,7 @@ module.exports = async function kzg_grandproduct_verifier(proof, nBits, pTauFile
     logger.info("> STEP 5. Compute r₀");
     let r0 = Fr.mul(Fr.mul(challenges.alpha, challenges.gamma), proof.evaluations["zxiw"]);
     r0 = Fr.sub(r0, L1xi);
-    logger.info("··· r₀ =", Fr.toString(r0));
+    logger.info("··· r₀    =", Fr.toString(r0));
 
     // STEP 6. Compute [D]_1 := [r'(x)]₁ + u·[Z(x)]₁, where r'(x) = r(x)-r₀
     // thus, [D]_1 = (L₁(𝔷) - α⋅(f(𝔷) + γ) + u)·[Z(x)]₁ + α⋅Z(𝔷·𝛚)·[t(x)]₁ - Z_H(𝔷)·[Q(x)]₁
@@ -68,13 +68,13 @@ module.exports = async function kzg_grandproduct_verifier(proof, nBits, pTauFile
     const D1_3 = G1.timesFr(proof.commitments["Q"], ZHxi);
 
     let D1 = G1.add(D1_1, G1.sub(D1_2, D1_3));
-    logger.info("··· [D]₁ =", G1.toString(G1.toAffine(D1)));
+    logger.info("··· [D]₁  =", G1.toString(G1.toAffine(D1)));
 
     // STEP 7. Compute [F]_1 := [D]_1 + v·[f(x)]₁
     logger.info("> STEP 7. Compute [F]₁");
     let F1 = G1.timesFr(proof.commitments["F"], challenges.v);
     F1 = G1.add(D1, F1);
-    logger.info("··· [F]₁ =", G1.toString(G1.toAffine(F1)));
+    logger.info("··· [F]₁  =", G1.toString(G1.toAffine(F1)));
 
     // STEP 8. Compute [E]_1 := (-r₀ + v·f(𝔷) + u·Z(𝔷·𝛚))·[1]_1
     logger.info("> STEP 8. Compute [E]₁");
@@ -82,7 +82,7 @@ module.exports = async function kzg_grandproduct_verifier(proof, nBits, pTauFile
     const E1_3 = Fr.mul(challenges.u, proof.evaluations["zxiw"]);
     let E1 = Fr.sub(Fr.add(E1_2, E1_3), r0);
     E1 = G1.timesFr(G1.one, E1);
-    logger.info("··· [E]₁ =", G1.toString(G1.toAffine(E1)));
+    logger.info("··· [E]₁  =", G1.toString(G1.toAffine(E1)));
 
     // STEP 9. Check the pairing equation
     logger.info("> STEP 9. Check pairing equation e(-[W𝔷(x)]₁ - u·[W𝔷·𝛚(x)]₁, [x]₂)·e(𝔷·[W𝔷(x)]₁ + u𝔷ω·[W𝔷·𝛚(x)]₁ + [F]₁ - [E]₁, [1]₂) = 1");

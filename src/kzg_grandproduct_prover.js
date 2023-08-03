@@ -22,18 +22,19 @@ module.exports = async function kzg_grandproduct_prover(evalsBufferF, evalsBuffe
     const sG1 = G1.F.n8 * 2;
 
     // STEP 0. Get the settings and prepare the setup    
+    evalsF = new Evaluations(evalsBufferF, curve, logger);
+    evalsT = new Evaluations(evalsBufferT, curve, logger);
 
     // Ensure all polynomials have the same length
-    if (evalsBufferF.byteLength !== evalsBufferT.byteLength) {
+    if (evalsF.length() !== evalsT.length()) {
         throw new Error("Both buffers must have the same length.");
     }
 
-    const polLen = evalsBufferF.byteLength / Fr.n8;
-    const nBits = Math.ceil(Math.log2(polLen));
+    const nBits = Math.ceil(Math.log2(evalsT.length()));
     const domainSize = 2 ** nBits;
 
     // Ensure the polynomial has a length that is equal to domainSize
-    if (polLen !== domainSize) {
+    if (evalsT.length() !== domainSize) {
         throw new Error("Polynomial length must be equal to the domain size.");
     }
 
@@ -48,8 +49,8 @@ module.exports = async function kzg_grandproduct_prover(evalsBufferF, evalsBuffe
     if (logger) {
         logger.info("-------------------------------------");
         logger.info("  KZG GRAND PRODUCT PROVER SETTINGS");
-        logger.info(`  Curve:        ${curve.name}`);
-        logger.info(`  #polynomials: ${polLen}`);
+        logger.info(`  Curve:       ${curve.name}`);
+        logger.info(`  Domain size: ${domainSize}`);
         logger.info("-------------------------------------");
     }
 
@@ -87,12 +88,12 @@ module.exports = async function kzg_grandproduct_prover(evalsBufferF, evalsBuffe
 
     async function computeWitnessPolynomials() {
         // Convert the evaluations to Montgomery form
-        evalsBufferF = await Fr.batchToMontgomery(evalsBufferF);
-        evalsBufferT = await Fr.batchToMontgomery(evalsBufferT);
+        evalsF.eval = await Fr.batchToMontgomery(evalsF.eval);
+        evalsT.eval = await Fr.batchToMontgomery(evalsT.eval);
 
         // Get the polynomials from the evaluations
-        const polF = await Polynomial.fromEvaluations(evalsBufferF, curve, logger);
-        const polT = await Polynomial.fromEvaluations(evalsBufferT, curve, logger);
+        const polF = await Polynomial.fromEvaluations(evalsF.eval, curve, logger);
+        const polT = await Polynomial.fromEvaluations(evalsT.eval, curve, logger);
         return { polF, polT };
     }
 
@@ -100,8 +101,8 @@ module.exports = async function kzg_grandproduct_prover(evalsBufferF, evalsBuffe
         proof.commitments["F"] = await polF.multiExponentiation(PTau, `polF`);
         proof.commitments["T"] = await polT.multiExponentiation(PTau, `polT`);
 
-        logger.info(`··· [f(x)]₁ = `, G1.toString(proof.commitments["F"]));
-        logger.info(`··· [t(x)]₁ = `, G1.toString(proof.commitments["T"]));
+        logger.info(`··· [f(x)]₁ =`, G1.toString(proof.commitments["F"]));
+        logger.info(`··· [t(x)]₁ =`, G1.toString(proof.commitments["T"]));
     }
 
     async function ComputeZPolynomial() {
@@ -109,13 +110,13 @@ module.exports = async function kzg_grandproduct_prover(evalsBufferF, evalsBuffe
         transcript.addPolCommitment(proof.commitments["T"]);
 
         challenges.gamma = transcript.getChallenge();
-        logger.info("··· 𝜸 = ", Fr.toString(challenges.gamma));
+        logger.info("···      𝜸  =", Fr.toString(challenges.gamma));
 
         let polZ = [];
-        polZ = await buildZGrandProduct(evalsBufferF, evalsBufferT, challenges.gamma, curve, { logger });
+        polZ = await buildZGrandProduct(evalsF.eval, evalsT.eval, challenges.gamma, curve, { logger });
 
         proof.commitments["Z"] = await polZ.multiExponentiation(PTau, `polZ`);
-        logger.info(`··· [Z(x)]₁ = `, G1.toString(proof.commitments["Z"]));
+        logger.info(`··· [Z(x)]₁ =`, G1.toString(proof.commitments["Z"]));
         return polZ;
     }
 
@@ -124,7 +125,7 @@ module.exports = async function kzg_grandproduct_prover(evalsBufferF, evalsBuffe
         transcript.addPolCommitment(proof.commitments["Z"]);
 
         challenges.alpha = transcript.getChallenge();
-        logger.info("··· 𝜶 = ", Fr.toString(challenges.alpha));
+        logger.info("···      𝜶  =", Fr.toString(challenges.alpha));
 
         const evalsQ = new Evaluations(new Uint8Array(domainSize * 2 * Fr.n8), curve, logger);
         const evalsZ = await Evaluations.fromPolynomial(polZ, 2, curve, logger);
@@ -165,7 +166,7 @@ module.exports = async function kzg_grandproduct_prover(evalsBufferF, evalsBuffe
         polQ.divZh(domainSize, 2);
 
         proof.commitments["Q"] = await polQ.multiExponentiation(PTau, `polQ`);
-        logger.info(`··· [Q(x)]₁ = `, G1.toString(proof.commitments["Q"]));
+        logger.info(`··· [Q(x)]₁ =`, G1.toString(proof.commitments["Q"]));
         return polQ;
     }
 
@@ -174,13 +175,13 @@ module.exports = async function kzg_grandproduct_prover(evalsBufferF, evalsBuffe
         transcript.addPolCommitment(proof.commitments["Q"]);
 
         challenges.xi = transcript.getChallenge();
-        logger.info("··· 𝔷 = ", Fr.toString(challenges.xi));
+        logger.info("···      𝔷  =", Fr.toString(challenges.xi));
 
         proof.evaluations["fxi"] = polF.evaluate(challenges.xi);
         proof.evaluations["zxiw"] = polZ.evaluate(Fr.mul(challenges.xi, Fr.w[nBits]));
 
-        logger.info(`··· f(𝔷) = `, Fr.toString(proof.evaluations["fxi"]));
-        logger.info(`··· Z(𝔷·𝛚) = `, Fr.toString(proof.evaluations["zxiw"]));
+        logger.info(`···   f(𝔷)  =`, Fr.toString(proof.evaluations["fxi"]));
+        logger.info(`··· Z(𝔷·𝛚)  =`, Fr.toString(proof.evaluations["zxiw"]));
     }
 
     async function computeW() {
@@ -196,8 +197,8 @@ module.exports = async function kzg_grandproduct_prover(evalsBufferF, evalsBuffe
         const ZHxi = computeZHEvaluation(curve, challenges.xi, nBits);
         const L1xi = computeL1Evaluation(curve, challenges.xi, ZHxi, nBits);
 
-        logger.info("··· ZH(𝔷) =", Fr.toString(ZHxi));
-        logger.info("··· L₁(𝔷) =", Fr.toString(L1xi));
+        logger.info("···  ZH(𝔷)  =", Fr.toString(ZHxi));
+        logger.info("···  L₁(𝔷)  =", Fr.toString(L1xi));
 
         const fxi = proof.evaluations["fxi"];
         const zxiomega = proof.evaluations["zxiw"];
@@ -207,7 +208,7 @@ module.exports = async function kzg_grandproduct_prover(evalsBufferF, evalsBuffe
             if (logger && ~i && i & (0xfff === 0)) logger.debug(`··· R evaluation ${i}/${n}`);
 
             const z_i = evalsZ.getEvaluation(i);
-            const t_i = evalsBufferT.slice(i * Fr.n8, i * Fr.n8 + Fr.n8);
+            const t_i = evalsT.getEvaluation(i);
             const q_i = evalsQ.getEvaluation(i);
 
             // Factor 1. L_1(𝔷)(Z(x)-1)
@@ -237,8 +238,8 @@ module.exports = async function kzg_grandproduct_prover(evalsBufferF, evalsBuffe
         challenges.v = transcript.getChallenge();
         logger.info("··· v = ", Fr.toString(challenges.v));
 
-        let polWxi = new Polynomial(new Uint8Array(polLen * Fr.n8), curve, logger);
-        let polWxiomega = new Polynomial(new Uint8Array(polLen * Fr.n8), curve, logger);
+        let polWxi = new Polynomial(new Uint8Array(domainSize * Fr.n8), curve, logger);
+        let polWxiomega = new Polynomial(new Uint8Array(domainSize * Fr.n8), curve, logger);
 
         polF.subScalar(fxi);
         polF.divByXSubValue(challenges.xi);
@@ -254,7 +255,7 @@ module.exports = async function kzg_grandproduct_prover(evalsBufferF, evalsBuffe
 
         proof.commitments["Wxi"] = await polWxi.multiExponentiation(PTau, "Wxi");
         proof.commitments["Wxiw"] = await polWxiomega.multiExponentiation(PTau, "Wxiomega");
-        logger.info("··· [W𝔷(x)]₁ = ", G1.toString(proof.commitments["Wxi"]));
-        logger.info("··· [W𝔷·𝛚(x)]₁ = ", G1.toString(proof.commitments["Wxiw"]));
+        logger.info("··· [W𝔷(x)]₁   =", G1.toString(proof.commitments["Wxi"]));
+        logger.info("··· [W𝔷·𝛚(x)]₁ =", G1.toString(proof.commitments["Wxiw"]));
     }
 }
