@@ -146,7 +146,7 @@ module.exports = async function kzg_grandproduct_verifier(proof, nBits, pTauFile
     function valueBelongsToGroup1(name, value) {
         const belongs = G1.isValid(value);
         if (!belongs)
-            logger.error(`··· ERROR: ${name} is not valid`, G1.toString(value));
+            logger.error(`··· ERROR: ${name} is not a valid G1 element`, G1.toString(value));
         return belongs;
     }
 
