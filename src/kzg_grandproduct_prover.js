@@ -259,9 +259,9 @@ module.exports = async function kzg_grandproduct_prover(evalsBufferF, evalsBuffe
         polWxiomega.add(polZ);
         polWxiomega.divByXSubValue(Fr.mul(challenges.xi, Fr.w[nBits]));
 
-        proof.commitWxi = await polWxi.multiExponentiation(PTau, "Wxi");
-        proof.commitWxiomega = await polWxiomega.multiExponentiation(PTau, "Wxiomega");
-        logger.info("··· [W𝔷(x)]₁ = ", curve.G1.toString(proof.commitWxi));
-        logger.info("··· [W𝔷·𝛚(x)]₁ = ", curve.G1.toString(proof.commitWxiomega));
+        proof.commitmentWxi = await polWxi.multiExponentiation(PTau, "Wxi");
+        proof.commitmentWxiomega = await polWxiomega.multiExponentiation(PTau, "Wxiomega");
+        logger.info("··· [W𝔷(x)]₁ = ", curve.G1.toString(proof.commitmentWxi));
+        logger.info("··· [W𝔷·𝛚(x)]₁ = ", curve.G1.toString(proof.commitmentWxiomega));
     }
 }
