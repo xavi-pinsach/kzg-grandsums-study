@@ -1,7 +1,7 @@
 const { readBinFile } = require("@iden3/binfileutils");
 const { Keccak256Transcript } = require("./Keccak256Transcript");
 const readPTauHeader = require("./ptau_utils");
-const { Polynomial } = require("./polynomial/polynomial");
+const { computeZHEvaluation, computeL1Evaluation } = require("./polynomial/polynomial_utils");
 
 module.exports = async function kzg_grandproduct_verifier(proof, nBits, pTauFilename, options) {
     const logger = options.logger;
@@ -35,8 +35,8 @@ module.exports = async function kzg_grandproduct_verifier(proof, nBits, pTauFile
     // STEP 2. Compute ZH(𝔷) and L1(𝔷)
     logger.info("> STEP 2. Compute ZH(𝔷) and L₁(𝔷)");
 
-    const ZHxi = Polynomial.computeZHEvaluation(curve, challenges.xi, nBits);
-    const L1xi = Polynomial.computeL1Evaluation(curve, challenges.xi, ZHxi, nBits);
+    const ZHxi = computeZHEvaluation(curve, challenges.xi, nBits);
+    const L1xi = computeL1Evaluation(curve, challenges.xi, ZHxi, nBits);
     logger.info("··· ZH(𝔷) =", Fr.toString(ZHxi));
     logger.info("··· L₁(𝔷) =", Fr.toString(L1xi));
 

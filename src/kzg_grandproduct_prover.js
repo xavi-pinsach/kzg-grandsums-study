@@ -5,6 +5,7 @@ const { Polynomial } = require("./polynomial/polynomial");
 const { Evaluations } = require("./polynomial/evaluations");
 const buildZGrandProduct = require("./grandproduct");
 const readPTauHeader = require("./ptau_utils");
+const { computeZHEvaluation, computeL1Evaluation } = require("./polynomial/polynomial_utils");
 
 module.exports = async function kzg_grandproduct_prover(evalsBufferF, evalsBufferT, pTauFilename, options) {
     const logger = options.logger;
@@ -142,8 +143,8 @@ module.exports = async function kzg_grandproduct_prover(evalsBufferF, evalsBuffe
             const f_i = evalsF.eval.slice(i_n8, i_n8 + Fr.n8);
             const t_i = evalsT.eval.slice(i_n8, i_n8 + Fr.n8);
 
-            const ZH_i = Polynomial.computeZHEvaluation(curve, omega, nBits);
-            const L1_i = Polynomial.computeL1Evaluation(curve, omega, ZH_i, nBits);
+            const ZH_i = computeZHEvaluation(curve, omega, nBits);
+            const L1_i = computeL1Evaluation(curve, omega, ZH_i, nBits);
     
             // IDENTITY A) L_1(x)(Z(x)-1) = 0
             const qA_i = Fr.mul(L1_i, Fr.sub(z_i, Fr.one));
@@ -198,8 +199,8 @@ module.exports = async function kzg_grandproduct_prover(evalsBufferF, evalsBuffe
         const evalsZ = await Evaluations.fromPolynomial(polZ, 1, curve, logger);
         const evalsQ = await Evaluations.fromPolynomial(polQ, 1, curve, logger);
 
-        const ZHxi = Polynomial.computeZHEvaluation(curve, challenges.xi, nBits);
-        const L1xi = Polynomial.computeL1Evaluation(curve, challenges.xi, ZHxi, nBits);
+        const ZHxi = computeZHEvaluation(curve, challenges.xi, nBits);
+        const L1xi = computeL1Evaluation(curve, challenges.xi, ZHxi, nBits);
 
         logger.info("··· ZH(𝔷) =", Fr.toString(ZHxi));
         logger.info("··· L₁(𝔷) =", Fr.toString(L1xi));

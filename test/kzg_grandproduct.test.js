@@ -27,9 +27,9 @@ describe("grandsums-study", function () {
     });
 
     it("should perform a Grand Product ZKG full proving & verifying process", async () => {
-        const length =  getRandomValue(10);
+        const nBits =  getRandomValue(2, 10);
 
-        const evalsBufferA = getRandomBuffer(2 ** length, curve);
+        const evalsBufferA = getRandomBuffer(2 ** nBits, curve);
         const evalsBufferB = new Uint8Array(evalsBufferA.byteLength);
 
         // TODO mix the array elements?
@@ -39,7 +39,7 @@ describe("grandsums-study", function () {
         const pTauFilename = path.join("tmp", "powersOfTau28_hez_final_11.ptau");
         const proof = await kzg_grandproduct_prover(evalsBufferA, evalsBufferB, pTauFilename, { logger });
 
-        const isValid = await kzg_grandproduct_verifier(proof, length, pTauFilename, { logger });
+        const isValid = await kzg_grandproduct_verifier(proof, nBits, pTauFilename, { logger });
         assert.ok(isValid);
     });
 });
