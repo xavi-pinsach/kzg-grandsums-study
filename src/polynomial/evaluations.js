@@ -27,6 +27,15 @@ module.exports.Evaluations =  class Evaluations {
         return this.eval.slice(i_n8, i_n8 + this.Fr.n8);
     }
 
+    setEvaluation(index, value) {
+        if (index > this.length() - 1) {
+            throw new Error("Evaluation index is out of bounds");
+        }
+
+        this.eval.set(value, index * this.Fr.n8);
+    }
+
+
     length() {
         let length = this.eval.byteLength / this.Fr.n8;
         if (length !== Math.floor(this.eval.byteLength / this.Fr.n8)) {

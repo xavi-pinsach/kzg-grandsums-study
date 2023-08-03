@@ -170,7 +170,6 @@ module.exports = async function kzg_grandproduct_verifier(proof, nBits, pTauFile
 
     function computeChallenges() {
         // STEP 1.1 Calculate challenge gamma from transcript
-        // logger.info("> STEP 3.1. Compute challenge 𝜸");
         const transcript = new Keccak256Transcript(curve);
         transcript.addPolCommitment(proof.commitments["F"]);
         transcript.addPolCommitment(proof.commitments["T"]);
@@ -178,30 +177,25 @@ module.exports = async function kzg_grandproduct_verifier(proof, nBits, pTauFile
         logger.info("··· 𝜸 = ", Fr.toString(challenges.gamma));
 
         // STEP 1.2 Calculate challenge alpha from transcript
-        // logger.info("> STEP 3.2. Compute challenge 𝜶");
         transcript.addFieldElement(challenges.gamma);
         transcript.addPolCommitment(proof.commitments["Z"]);
         challenges.alpha = transcript.getChallenge();
         logger.info("··· 𝜶 = ", Fr.toString(challenges.alpha));
 
         // STEP 1.3 Calculate challenge 𝔷 from transcript
-        // logger.info("> STEP 3.3. Compute challenge 𝔷");
         transcript.addFieldElement(challenges.alpha);
         transcript.addPolCommitment(proof.commitments["Q"]);
         challenges.xi = transcript.getChallenge();
         logger.info("··· 𝔷 = ", Fr.toString(challenges.xi));
         
         // STEP 1.4 Calculate challenge v from transcript
-        // logger.info("> STEP 3.4. Compute challenge v");
         transcript.addFieldElement(challenges.xi);
         transcript.addFieldElement(proof.evaluations["fxi"]);
         transcript.addFieldElement(proof.evaluations["zxiw"]);
-
         challenges.v = transcript.getChallenge();
         logger.info("··· v = ", Fr.toString(challenges.v));
 
         // STEP 1.5 Calculate challenge u from transcript
-        // logger.info("> STEP 3.5. Compute challenge u");
         transcript.addFieldElement(challenges.v);
         transcript.addPolCommitment(proof.commitments["Wxi"]);
         transcript.addPolCommitment(proof.commitments["Wxiw"]);

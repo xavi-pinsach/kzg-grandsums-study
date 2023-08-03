@@ -118,7 +118,7 @@ module.exports.Polynomial = class Polynomial {
 
     setCoef(index, value) {
         if (index > this.length() - 1) {
-            throw new Error("Coef index is not available");
+            throw new Error("Coef index is out of bounds");
         }
 
         this.coef.set(value, index * this.Fr.n8);
