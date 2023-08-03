@@ -236,7 +236,7 @@ module.exports = async function kzg_grandproduct_prover(evalsBufferF, evalsBuffe
         const polR = await Polynomial.fromEvaluations(evalsR.eval, curve, logger);
 
         challenges.v = transcript.getChallenge();
-        logger.info("··· v = ", Fr.toString(challenges.v));
+        logger.info("···      v  = ", Fr.toString(challenges.v));
 
         let polWxi = new Polynomial(new Uint8Array(domainSize * Fr.n8), curve, logger);
         let polWxiomega = new Polynomial(new Uint8Array(domainSize * Fr.n8), curve, logger);
