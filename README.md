@@ -3,7 +3,7 @@
 
 This repository is a study about the grand-sums proposal by [Héctor Masip](https://hecmas.github.io/) / Polygon zkEvm. It explores the concept and implementation of grand-sums instead grand-product.
 
-To be able to compare the performance of grand-sums and grand-product, we have implemented both. The grand-product protocol can be found [here](https://hackmd.io/-5URcycYTlOgJTt3rCMrpw).
+To be able to compare the performance of grand-sums and grand-product, we have implemented both. The grand-product protocol is described [here](https://hackmd.io/-5URcycYTlOgJTt3rCMrpw). The grand-sum protocol is described [here](https://hackmd.io/D3-fws5dQkiUQK9kSHABbA?view).
 
 ⚠️ **Warning: This Repository is for Study Purposes Only!** ⚠️
 
