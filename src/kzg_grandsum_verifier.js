@@ -55,7 +55,7 @@ module.exports = async function kzg_grandsum_verifier(proof, nBits, pTauFilename
     const r0_3 = Fr.add(proof.evaluations["txi"], challenges.gamma);
     let r0 = Fr.mul(proof.evaluations["sxiw"], Fr.mul(r0_2, r0_3));
     r0 = Fr.add(r0, Fr.sub(proof.evaluations["fxi"], proof.evaluations["txi"]))
-    r0 = Fr.sub(r0, challenges.alpha);
+    r0 = Fr.mul(r0, challenges.alpha);
 
     logger.info("··· r₀    =", Fr.toString(r0));
 
