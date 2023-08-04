@@ -31,15 +31,15 @@ module.exports = async function buildSGrandSum(evaluationsF, evaluationsT, chall
         if (logger && (~i) && (i & 0xFFF === 0)) logger.debug(`··· S evaluation ${i}/${n}`);
         const i_sFr = i * sFr;
 
-        // num := (f + challenge)
+        // f = (f + challenge)
         const f = curve.Fr.add(evalsF.slice(i_sFr, i_sFr + sFr), challenge);
 
-        // den := (t + challenge)
+        // t = (t + challenge)
         const t = curve.Fr.add(evalsT.slice(i_sFr, i_sFr + sFr), challenge);
 
-        // 1/t - 1/f = (f - t) / (f * t)
-        // num = f - t, den = f * t
-        const num = curve.Fr.sub(f, t);
+        // 1/f - 1/t = (t - f) / (f * t)
+        // num = t - f, den = f * t
+        const num = curve.Fr.sub(t, f);
         numArr.set(num, ((i + 1) % n) * sFr);
         const den = curve.Fr.mul(f, t);
         denArr.set(den, ((i + 1) % n) * sFr);
@@ -58,13 +58,13 @@ module.exports = async function buildSGrandSum(evaluationsF, evaluationsT, chall
         numArr.set(lastVal, i_sFr);
     }
 
-    // From now on the values saved on numArr will be Z(X) evaluations buffer
+    // From now on the values saved on numArr will be S(X) evaluations buffer
 
     if (!curve.Fr.eq(numArr.slice(0, sFr), curve.Fr.zero)) {
         throw new Error("S(X) grand sum is not well calculated");
     }
 
-    // Compute polynomial coefficients z(X) from buffers.Z
+    // Compute polynomial coefficients S(X) from buffers.S
     if (logger) logger.info("··· Computing S ifft");
     const S = await Polynomial.fromEvaluations(numArr, curve, logger);
 

@@ -146,7 +146,7 @@ module.exports = async function kzg_grandsum_verifier(proof, nBits, pTauFilename
         return (
             valueBelongsToField("f(𝔷)", proof.evaluations["fxi"]) &&
             valueBelongsToField("t(𝔷)", proof.evaluations["txi"]) &&
-            valueBelongsToField("Z(𝔷·𝛚)", proof.evaluations["zxiw"])
+            valueBelongsToField("S(𝔷·𝛚)", proof.evaluations["sxiw"])
         );
     }
 
@@ -174,7 +174,7 @@ module.exports = async function kzg_grandsum_verifier(proof, nBits, pTauFilename
         transcript.addFieldElement(challenges.xi);
         transcript.addFieldElement(proof.evaluations["fxi"]);
         transcript.addFieldElement(proof.evaluations["txi"]);
-        transcript.addFieldElement(proof.evaluations["zxiw"]);
+        transcript.addFieldElement(proof.evaluations["sxiw"]);
         challenges.v = transcript.getChallenge();
         logger.info("··· v = ", Fr.toString(challenges.v));
 

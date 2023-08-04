@@ -43,8 +43,8 @@ module.exports = async function kzg_grandsum_prover(evalsBufferF, evalsBufferT, 
         throw new Error("Powers of Tau has not enough values for this polynomial");
     }
 
-    const PTau = new BigBuffer(domainSize * sG1);
-    await fdPTau.readToBuffer(PTau, 0, domainSize * sG1, pTauSections[2][0].p);
+    const PTau = new BigBuffer(domainSize * 2 * sG1);
+    await fdPTau.readToBuffer(PTau, 0, domainSize * 2 * sG1, pTauSections[2][0].p);
 
     if (logger) {
         logger.info("-------------------------------------");
@@ -198,9 +198,11 @@ module.exports = async function kzg_grandsum_prover(evalsBufferF, evalsBufferT, 
         transcript.addFieldElement(proof.evaluations["txi"]);
         transcript.addFieldElement(proof.evaluations["sxiw"]);
 
+        let extension = 2;
+
         // Compute the linearisation polynomial r
-        const evalsR = new Evaluations(new Uint8Array(domainSize * Fr.n8), curve, logger);
-        const evalsS = await Evaluations.fromPolynomial(polS, 1, curve, logger);
+        const evalsR = new Evaluations(new Uint8Array(domainSize * extension * Fr.n8), curve, logger);
+        const evalsS = await Evaluations.fromPolynomial(polS, extension, curve, logger);
         const evalsQ = await Evaluations.fromPolynomial(polQ, 1, curve, logger);
 
         const ZHxi = computeZHEvaluation(curve, challenges.xi, nBits);
@@ -213,14 +215,14 @@ module.exports = async function kzg_grandsum_prover(evalsBufferF, evalsBufferT, 
         const txi = proof.evaluations["txi"];
         const sxiomega = proof.evaluations["sxiw"];
 
-        let omega = Fr.one; // I think this lookp sould be until 2n at least
-        for (let i = 0; i < domainSize; i++) {
+        let omega = Fr.one;
+        for (let i = 0; i < domainSize * extension; i++) {
             if (logger && ~i && i & (0xfff === 0)) logger.debug(`··· R evaluation ${i}/${n}`);
 
             const s_i = evalsS.getEvaluation(i);
             const q_i = evalsQ.getEvaluation(i);
 
-            // Factor 1. S(x)L_1(𝔷)
+            // Factor 1. S(X)L_1(𝔷)
             const rA_i = Fr.mul(s_i, L1xi);
 
             // Factor 2. (S(𝔷·𝛚) - S(X))·(f(𝔷) + 𝜸)·(t(𝔷) + 𝜸) + f(𝔷) - t(𝔷)
@@ -240,7 +242,7 @@ module.exports = async function kzg_grandsum_prover(evalsBufferF, evalsBufferT, 
 
             evalsR.setEvaluation(i, r_i);
 
-            omega = Fr.mul(omega, Fr.w[nBits]);
+            omega = Fr.mul(omega, Fr.w[nBits + 1]);
         }
 
         if (logger) logger.debug("··· Interpolating r polynomial");
@@ -249,10 +251,10 @@ module.exports = async function kzg_grandsum_prover(evalsBufferF, evalsBufferT, 
         challenges.v = transcript.getChallenge();
         logger.info("···      v  = ", Fr.toString(challenges.v));
 
-        let polWxi = new Polynomial(new Uint8Array(domainSize * Fr.n8), curve, logger);
+        let polWxi = new Polynomial(new Uint8Array(domainSize * extension * Fr.n8), curve, logger);
         let polWxiomega = new Polynomial(new Uint8Array(domainSize * Fr.n8), curve, logger);
 
-
+        // The following can be optimized by using Homer's rule
         polF.subScalar(fxi);
         polF.mulScalar(challenges.v);
         polF.divByXSubValue(challenges.xi);
@@ -261,7 +263,7 @@ module.exports = async function kzg_grandsum_prover(evalsBufferF, evalsBufferT, 
         polT.subScalar(txi);
         polT.mulScalar(Fr.square(challenges.v));
         polT.divByXSubValue(challenges.xi);
-        polWxi.add(polF);
+        polWxi.add(polT);
 
         polR.divByXSubValue(challenges.xi);
         polWxi.add(polR);
