@@ -4,11 +4,11 @@ const { Keccak256Transcript } = require("./Keccak256Transcript");
 const readPTauHeader = require("./ptau_utils");
 const { computeZHEvaluation, computeL1Evaluation } = require("./polynomial/polynomial_utils");
 
-module.exports = async function kzg_grandproduct_verifier(proof, nBits, pTauFilename, options) {
+module.exports = async function kzg_grandsum_verifier(proof, nBits, pTauFilename, options) {
     const logger = options.logger;
 
     if (logger) {
-        logger.info("> KZG GRAND PRODUCT VERIFIER STARTED");
+        logger.info("> KZG GRAND SUM VERIFIER STARTED");
         logger.info("");
     }
 
@@ -21,7 +21,7 @@ module.exports = async function kzg_grandproduct_verifier(proof, nBits, pTauFile
     const nPols = proof.commitments.length;
     if (logger) {
         logger.info("---------------------------------------");
-        logger.info("  KZG GRAND PRODUCT VERIFIER SETTINGS");
+        logger.info("  KZG GRAND SUM VERIFIER SETTINGS");
         logger.info(`  Curve:       ${curve.name}`);
         logger.info(`  Domain size: ${2 ** nBits}`);
         logger.info("---------------------------------------");
@@ -30,11 +30,11 @@ module.exports = async function kzg_grandproduct_verifier(proof, nBits, pTauFile
     let challenges = {};
 
     // STEP 1 Validate the corretness of the proof elements
-    logger.info("> STEP 1. Validate [f(x)]₁,[t(x)]₁,[Z(x)]₁,[Q(x)]₁,[W𝔷(x)]₁,[W𝔷·𝛚(x)]₁ ∈ 𝔾₁");
+    logger.info("> STEP 1. Validate [f(x)]₁,[t(x)]₁,[S(x)]₁,[Q(x)]₁,[W𝔷(x)]₁,[W𝔷·𝛚(x)]₁ ∈ 𝔾₁");
     if(!validateCommitments()) return false;
 
     // STEP 2 Validate the corretness of the proof elements
-    logger.info("> STEP 2. Validate f(𝔷),Z(𝔷·𝛚) ∈ 𝔽");
+    logger.info("> STEP 2. Validate f(𝔷),t(𝔷),S(𝔷·𝛚) ∈ 𝔽");
     if(!validateEvaluations()) return false;
 
     // STEP 3 Calculate challenge beta from transcript
@@ -49,38 +49,42 @@ module.exports = async function kzg_grandproduct_verifier(proof, nBits, pTauFile
     logger.info("··· ZH(𝔷) =", Fr.toString(ZHxi));
     logger.info("··· L₁(𝔷) =", Fr.toString(L1xi));
 
-    // STEP 5. Compute r₀ := α⋅γ⋅z(𝔷·𝛚) - L₁(𝔷)
+    // STEP 5. Compute r₀ := α⋅[ S(𝔷·𝛚)·(f(𝔷) + γ)·(t(𝔷) + γ) + f(𝔷) - t(𝔷) ]
     logger.info("> STEP 5. Compute r₀");
-    let r0 = Fr.mul(Fr.mul(challenges.alpha, challenges.gamma), proof.evaluations["zxiw"]);
-    r0 = Fr.sub(r0, L1xi);
+    const r0_2 = Fr.add(proof.evaluations["fxi"], challenges.gamma);
+    const r0_3 = Fr.add(proof.evaluations["txi"], challenges.gamma);
+    let r0 = Fr.mul(proof.evaluations["sxiw"], Fr.mul(r0_2, r0_3));
+    r0 = Fr.add(r0, Fr.sub(proof.evaluations["fxi"], proof.evaluations["txi"]))
+    r0 = Fr.mul(r0, challenges.alpha);
+
     logger.info("··· r₀    =", Fr.toString(r0));
 
-    // STEP 6. Compute [D]_1 := [r'(x)]₁ + u·[Z(x)]₁, where r'(x) = r(x)-r₀
-    // thus, [D]_1 = (L₁(𝔷) - α⋅(f(𝔷) + γ) + u)·[Z(x)]₁ + α⋅Z(𝔷·𝛚)·[t(x)]₁ - Z_H(𝔷)·[Q(x)]₁
+    // STEP 6. Compute [D]_1 := [r'(x)]₁ + u·[S(x)]₁, where r'(x) = r(x)-r₀
+    // thus, [D]_1 = (L₁(𝔷) - α⋅(f(𝔷) + γ)·(t(𝔷) + γ) + u)·[S(x)]₁ - Z_H(𝔷)·[Q(x)]₁
     logger.info("> STEP 6. Compute [D]₁");
     let D1_12 = Fr.mul(challenges.alpha, Fr.add(proof.evaluations["fxi"], challenges.gamma));
+    D1_12 = Fr.mul(D1_12, Fr.add(proof.evaluations["txi"], challenges.gamma));
     let D1_1 = Fr.add(Fr.sub(L1xi, D1_12), challenges.u);
-    D1_1 = G1.timesFr(proof.commitments["Z"], D1_1);
+    D1_1 = G1.timesFr(proof.commitments["S"], D1_1);
 
-    let D1_2 = Fr.mul(challenges.alpha, proof.evaluations["zxiw"]);
-    D1_2 = G1.timesFr(proof.commitments["T"], D1_2);
+    const D1_2 = G1.timesFr(proof.commitments["Q"], ZHxi);
 
-    const D1_3 = G1.timesFr(proof.commitments["Q"], ZHxi);
-
-    let D1 = G1.add(D1_1, G1.sub(D1_2, D1_3));
+    let D1 = G1.sub(D1_1,D1_2);
     logger.info("··· [D]₁  =", G1.toString(G1.toAffine(D1)));
 
-    // STEP 7. Compute [F]_1 := [D]_1 + v·[f(x)]₁
+    // STEP 7. Compute [F]_1 := [D]_1 + v·[f(x)]₁ + v^2·[t(x)]₁
     logger.info("> STEP 7. Compute [F]₁");
     let F1 = G1.timesFr(proof.commitments["F"], challenges.v);
-    F1 = G1.add(D1, F1);
+    F1 = G1.add(F1, G1.timesFr(proof.commitments["T"], Fr.square(challenges.v)));
+    F1 = G1.add(F1, D1);
     logger.info("··· [F]₁  =", G1.toString(G1.toAffine(F1)));
 
-    // STEP 8. Compute [E]_1 := (-r₀ + v·f(𝔷) + u·Z(𝔷·𝛚))·[1]_1
+    // STEP 8. Compute [E]_1 := (-r₀ + v·f(𝔷) + v^2·t(𝔷) + u·S(𝔷·𝛚))·[1]_1
     logger.info("> STEP 8. Compute [E]₁");
     const E1_2 = Fr.mul(challenges.v, proof.evaluations["fxi"]);
-    const E1_3 = Fr.mul(challenges.u, proof.evaluations["zxiw"]);
-    let E1 = Fr.sub(Fr.add(E1_2, E1_3), r0);
+    const E1_3 = Fr.mul(Fr.square(challenges.v), proof.evaluations["txi"]);
+    const E1_4 = Fr.mul(challenges.u, proof.evaluations["sxiw"]);
+    let E1 = Fr.sub(Fr.add(E1_2, Fr.add(E1_3, E1_4)), r0);
     E1 = G1.timesFr(G1.one, E1);
     logger.info("··· [E]₁  =", G1.toString(G1.toAffine(E1)));
 
@@ -131,7 +135,7 @@ module.exports = async function kzg_grandproduct_verifier(proof, nBits, pTauFile
         return (
             valueBelongsToGroup1("[f(x)]₁", proof.commitments["F"]) &&
             valueBelongsToGroup1("[t(x)]₁", proof.commitments["T"]) &&
-            valueBelongsToGroup1("[Z(x)]₁", proof.commitments["Z"]) &&
+            valueBelongsToGroup1("[S(x)]₁", proof.commitments["S"]) &&
             valueBelongsToGroup1("[Q(x)]₁", proof.commitments["Q"]) &&
             valueBelongsToGroup1("[W𝔷(x)]₁", proof.commitments["Wxi"]) &&
             valueBelongsToGroup1("[W𝔷·𝛚(x)]₁", proof.commitments["Wxiw"])
@@ -141,7 +145,8 @@ module.exports = async function kzg_grandproduct_verifier(proof, nBits, pTauFile
     function validateEvaluations() {
         return (
             valueBelongsToField("f(𝔷)", proof.evaluations["fxi"]) &&
-            valueBelongsToField("Z(𝔷·𝛚)", proof.evaluations["zxiw"])
+            valueBelongsToField("t(𝔷)", proof.evaluations["txi"]) &&
+            valueBelongsToField("S(𝔷·𝛚)", proof.evaluations["sxiw"])
         );
     }
 
@@ -155,7 +160,7 @@ module.exports = async function kzg_grandproduct_verifier(proof, nBits, pTauFile
 
         // STEP 1.2 Calculate challenge alpha from transcript
         transcript.addFieldElement(challenges.gamma);
-        transcript.addPolCommitment(proof.commitments["Z"]);
+        transcript.addPolCommitment(proof.commitments["S"]);
         challenges.alpha = transcript.getChallenge();
         logger.info("··· 𝜶 = ", Fr.toString(challenges.alpha));
 
@@ -168,7 +173,8 @@ module.exports = async function kzg_grandproduct_verifier(proof, nBits, pTauFile
         // STEP 1.4 Calculate challenge v from transcript
         transcript.addFieldElement(challenges.xi);
         transcript.addFieldElement(proof.evaluations["fxi"]);
-        transcript.addFieldElement(proof.evaluations["zxiw"]);
+        transcript.addFieldElement(proof.evaluations["txi"]);
+        transcript.addFieldElement(proof.evaluations["sxiw"]);
         challenges.v = transcript.getChallenge();
         logger.info("··· v = ", Fr.toString(challenges.v));
 

@@ -25,7 +25,6 @@ module.exports = async function buildZGrandProduct(evaluationsF, evaluationsT, c
     numArr.set(curve.Fr.one, 0);
     denArr.set(curve.Fr.one, 0);
 
-    // Set initial omega
     for (let i = 0; i < n; i++) {
         if (logger && (~i) && (i & 0xFFF === 0)) logger.debug(`··· Z evaluation ${i}/${n}`);
         const i_sFr = i * sFr;

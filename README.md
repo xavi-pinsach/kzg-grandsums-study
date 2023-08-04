@@ -1,7 +1,7 @@
 # Grand Sums Study
 ![Tests](https://github.com/xavi-pinsach/kzg-grandsums-study/actions/workflows/tests.yml/badge.svg)
 
-This repository is a study about the grand-sums proposal by [Héctor Masip](https://hecmas.github.io/) / Polygon zkEvm. It explores the concept and implementation of grand-sums instead grand-product.
+This repository is a study about the grand-sum usage in multiset equality arguments proposed by [Ulrich Haböck](https://eprint.iacr.org/2022/1530.pdf) in the multivariate setting and adapted by [Héctor Masip](https://hecmas.github.io/) / Polygon zkEvm to the univariate setting. It explores the concept and implementation of grand-sums instead grand-product.
 
 To be able to compare the performance of grand-sums and grand-product, we have implemented both. The grand-product protocol is described [here](https://hackmd.io/-5URcycYTlOgJTt3rCMrpw). The grand-sum protocol is described [here](https://hackmd.io/D3-fws5dQkiUQK9kSHABbA?view).
 
@@ -24,6 +24,12 @@ The repository contains the following files:
 ## Usage
 
 Before running the tests, you need to create a `tmp` folder in the root of the repository. Then, you need to download the `powersOfTau28_hez_final_11.ptau` file from [this link](https://github.com/iden3/snarkjs#7-prepare-phase-2) and place it in the `tmp` folder.
+
+## TODO List
+- [ ] Benchmarking: Compare grand-product vs grand-sum (either single ones and multiple ones).
+- [ ] Implement NTT-based polynomial arithmetic to be able to operate over the coefficients. Also $O(n\log(n))$ vs $O(n^2)$.
+- [ ] Fix the edge case where `nBits = 1`.
+- [ ] Generalize the API/protocol to run in the case of multiple multiset equality checks.
 
 ## License
 
