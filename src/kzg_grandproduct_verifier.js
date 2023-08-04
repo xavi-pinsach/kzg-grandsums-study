@@ -8,7 +8,7 @@ module.exports = async function kzg_grandproduct_verifier(proof, nBits, pTauFile
     const logger = options.logger;
 
     if (logger) {
-        logger.info("> KZG BASIC VERIFIER STARTED");
+        logger.info("> KZG GRAND PRODUCT VERIFIER STARTED");
         logger.info("");
     }
 
