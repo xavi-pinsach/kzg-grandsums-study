@@ -1,37 +1,44 @@
-// const assert = require("assert");
-// const { getCurveFromName } = require("ffjavascript");
-// const { getRandomPolynomialByLength, getRandomValue } = require("./test.utils.js");
-// const { Polynomial } = require("../src/polynomial/polynomial.js");
-// const path = require("path");
+const assert = require("assert");
+const { getCurveFromName } = require("ffjavascript");
+const {
+    getRandomValue,
+    getRandomBuffer,
+} = require("./test.utils.js");
+const path = require("path");
 
-// const kzg_GS_prover = require("../src/kzg_grandsum_prover.js");
-// const kzg_basic_verifier = require("../src/kzg_basic_verifier.js");
+const kzg_grandsum_prover = require("../src/kzg_grandsum_prover.js");
+const kzg_grandsum_verifier = require("../src/kzg_grandsum_verifier.js");
 
-// const Logger = require("logplease");
-// const logger = Logger.create("", { showTimestamp: false });
-// Logger.setLogLevel("INFO");
+const Logger = require("logplease");
+const logger = Logger.create("", { showTimestamp: false });
+Logger.setLogLevel("INFO");
 
-// describe("grand-sums-study: KZG basic (1 polynomial) test", function () {
-//     this.timeout(500000);
+describe("grandsums-study", function () {
+    this.timeout(1000000);
 
-//     let curve;
+    let curve;
 
-//     before(async () => {
-//         curve = await getCurveFromName("bn128");
-//     });
+    before(async () => {
+        curve = await getCurveFromName("bn128");
+    });
 
-//     after(async () => {
-//         await curve.terminate();
-//     });
+    after(async () => {
+        await curve.terminate();
+    });
 
-//     it.skip("should perform a Grand Product ZKG full proving & verifying process with two polynomials", async () => {
-//         // Get a random number of polynomials to be committed between 2 and 5
-//         pol = getRandomPolynomialByLength(2, curve.Fr);
+    it("should perform a Grand Sum ZKG full proving & verifying process", async () => {
+        const nBits =  getRandomValue(2, 10);
 
-//         const pTauFilename = path.join("tmp", "powersOfTau28_hez_final_15.ptau");
-//         const proof = await kzg_GS_prover([pol], pTauFilename, { logger });
+        const evalsBufferA = getRandomBuffer(2 ** nBits, curve);
+        const evalsBufferB = new Uint8Array(evalsBufferA.byteLength);
 
-//         //const isValid = await kzg_basic_verifier(proof, pTauFilename, { logger });
-//         assert.ok(isValid);
-//     });
-// });
+        evalsBufferB.set(evalsBufferA.slice(0, evalsBufferA.byteLength - curve.Fr.n8), curve.Fr.n8);
+        evalsBufferB.set(evalsBufferA.slice(evalsBufferA.byteLength - curve.Fr.n8, evalsBufferA.byteLength), 0);
+
+        const pTauFilename = path.join("tmp", "powersOfTau28_hez_final_11.ptau");
+        const proof = await kzg_grandsum_prover(evalsBufferA, evalsBufferB, pTauFilename, { logger });
+
+        const isValid = await kzg_grandsum_verifier(proof, nBits, pTauFilename, { logger });
+        assert.ok(isValid);
+    });
+});
