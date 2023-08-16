@@ -18,6 +18,7 @@
 */
 
 const { BigBuffer } = require("ffjavascript");
+const { Evaluations } = require("./evaluations");
 
 module.exports.Polynomial = class Polynomial {
     constructor(coefficients, curve, logger) {
@@ -56,6 +57,10 @@ module.exports.Polynomial = class Polynomial {
         buff.set(polynomial.coef.slice(), 0);
 
         return new Polynomial(buff, curve, logger);
+    }
+
+    clone(curve, logger) {
+        return Polynomial.fromPolynomial(this, curve, logger);
     }
 
     isEqual(polynomial) {
@@ -325,6 +330,33 @@ module.exports.Polynomial = class Polynomial {
             delete this.coef;
             this.coef = polynomial.coef;
         }
+    }
+
+    async multiply(polynomial) {
+        const newDegree = this.degree() + polynomial.degree();
+        const newPower = Math.ceil(Math.log2(newDegree));
+        const newLength = 1 << newPower;
+        const newBuffer = new Uint8Array(newLength * this.Fr.n8);
+
+        const power1 = Math.ceil(Math.log2(this.degree() + 1));
+        const power2 = Math.ceil(Math.log2(polynomial.degree() + 1));
+
+        const factor1 = 1 << (newPower - power1);
+        const factor2 = 1 << (newPower - power2);
+
+        const evaluations1 = await Evaluations.fromPolynomial(this, factor1, this.curve, this.logger);
+        const evaluations2 = await Evaluations.fromPolynomial(polynomial, factor2, this.curve, this.logger);
+
+        // Perform the multiplication
+        for(let i = 0; i < newLength; i++) {
+            const i_n8 = i * this.Fr.n8;
+            const mul_i = this.Fr.mul(evaluations1.getEvaluation(i), evaluations2.getEvaluation(i));
+            newBuffer.set(mul_i, i_n8);
+        }
+
+        let newCoefs = await this.curve.Fr.ifft(newBuffer);
+        this.coef = newCoefs;
+        return this;
     }
 
     mulScalar(value) {

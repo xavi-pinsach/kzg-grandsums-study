@@ -9,7 +9,9 @@ module.exports.Evaluations =  class Evaluations {
     }
 
     static async fromPolynomial(polynomial, extension, curve, logger) {
-        const coefficientsN = new BigBuffer(polynomial.length() * extension * curve.Fr.n8);
+        const power = Math.ceil(Math.log2(polynomial.length()));
+        const length = (1 << power) * extension;
+        const coefficientsN = new BigBuffer(length * curve.Fr.n8);
         coefficientsN.set(polynomial.coef, 0);
 
         const evaluations = await curve.Fr.fft(coefficientsN);

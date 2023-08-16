@@ -20,5 +20,13 @@
       "program": "${workspaceFolder}/node_modules/mocha/bin/_mocha",
       "args": ["${workspaceFolder}/test/kzg_grandsum.test.js"]
     },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "polynomial",
+      "skipFiles": ["<node_internals>/**"],
+      "program": "${workspaceFolder}/node_modules/mocha/bin/_mocha",
+      "args": ["${workspaceFolder}/test/polynomial.test.js"]
+    },
   ]
 }
