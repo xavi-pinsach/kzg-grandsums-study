@@ -127,43 +127,26 @@ module.exports = async function kzg_grandproduct_prover(evalsBufferF, evalsBuffe
         challenges.alpha = transcript.getChallenge();
         logger.info("···      𝜶  =", Fr.toString(challenges.alpha));
 
-        const evalsQ = new Evaluations(new Uint8Array(domainSize * 2 * Fr.n8), curve, logger);
-        const evalsZ = await Evaluations.fromPolynomial(polZ, 2, curve, logger);
-        const evalsFExt = await Evaluations.fromPolynomial(polF, 2, curve, logger);
-        const evalsTExt = await Evaluations.fromPolynomial(polT, 2, curve, logger);
+        const polZ1 = polZ.clone();
+        const polL1 = await Polynomial.Lagrange1(nBits, curve, logger);
+        polZ1.subScalar(Fr.one);
+        await polZ1.multiply(polL1);
 
-        let omega = Fr.one;
-        for (let i = 0; i < domainSize*2; i++) {
-            if (logger && ~i && i & (0xfff === 0)) logger.debug(`··· Q evaluation ${i}/${n}`);
+        const polZ21 = polZ.clone();
+        await polZ21.shiftOmega();
+        const polT21 = polT.clone().addScalar(challenges.gamma);
+        await polZ21.multiply(polT21);
 
-            const z_i = evalsZ.getEvaluation(i);
-            const z_wi = evalsZ.getEvaluation((i + 2) % (domainSize * 2));
-            const f_i = evalsFExt.getEvaluation(i);
-            const t_i = evalsTExt.getEvaluation(i);
+        const polZ22 = polZ.clone();
+        const polF22 = polF.clone().addScalar(challenges.gamma);
+        await polZ22.multiply(polF22);
 
-            const ZH_i = computeZHEvaluation(curve, omega, nBits);
-            const L1_i = computeL1Evaluation(curve, omega, ZH_i, nBits);
+        polZ21.sub(polZ22);
+        polZ21.mulScalar(challenges.alpha);
 
-            // IDENTITY A) L_1(x)(Z(x)-1) = 0
-            const qA_i = Fr.mul(L1_i, Fr.sub(z_i, Fr.one));
+        const polQ = polZ1.add(polZ21);
 
-            //IDENTITY B) Z(Xg)·(t(X) + 𝜸) − Z(X)·(f(X) + 𝜸) = 0
-            const qB1_i = Fr.mul(z_wi, Fr.add(t_i, challenges.gamma));
-            const qB2_i = Fr.mul(z_i, Fr.add(f_i, challenges.gamma));
-            let qB_i = Fr.sub(qB1_i, qB2_i);
-            //Apply alpha random factor
-            qB_i = Fr.mul(qB_i, challenges.alpha);
-
-            const q_i = Fr.add(qA_i, qB_i);
-            evalsQ.setEvaluation(i, q_i);
-
-            // Compute next omega
-            omega = Fr.mul(omega, Fr.w[nBits + 1]);
-        }
-
-        if (logger) logger.debug("··· Interpolating Q polynomial");
-        const polQ = await Polynomial.fromEvaluations(evalsQ.eval, curve, logger);
-        polQ.divZh(domainSize, 2);
+        polQ.divZh(domainSize);
 
         proof.commitments["Q"] = await polQ.multiExponentiation(PTau, `polQ`);
         logger.info(`··· [Q(x)]₁ =`, G1.toString(proof.commitments["Q"]));
@@ -189,11 +172,10 @@ module.exports = async function kzg_grandproduct_prover(evalsBufferF, evalsBuffe
         transcript.addFieldElement(proof.evaluations["fxi"]);
         transcript.addFieldElement(proof.evaluations["zxiw"]);
 
-        // Compute the linearisation polynomial r
-        const evalsR = new Evaluations(new Uint8Array(domainSize * Fr.n8), curve, logger);
-        const evalsZ = await Evaluations.fromPolynomial(polZ, 1, curve, logger);
-        const evalsQ = await Evaluations.fromPolynomial(polQ, 1, curve, logger);
+        challenges.v = transcript.getChallenge();
+        logger.info("···      v  = ", Fr.toString(challenges.v));
 
+        // Compute the linearisation polynomial r
         const ZHxi = computeZHEvaluation(curve, challenges.xi, nBits);
         const L1xi = computeL1Evaluation(curve, challenges.xi, ZHxi, nBits);
 
@@ -203,54 +185,24 @@ module.exports = async function kzg_grandproduct_prover(evalsBufferF, evalsBuffe
         const fxi = proof.evaluations["fxi"];
         const zxiomega = proof.evaluations["zxiw"];
 
-        let omega = Fr.one; // I think this lookp sould be until 2n at least
-        for (let i = 0; i < domainSize; i++) {
-            if (logger && ~i && i & (0xfff === 0)) logger.debug(`··· R evaluation ${i}/${n}`);
+        const polR = polZ.clone().subScalar(Fr.one).mulScalar(L1xi);
 
-            const z_i = evalsZ.getEvaluation(i);
-            const t_i = evalsT.getEvaluation(i);
-            const q_i = evalsQ.getEvaluation(i);
+        const polR21 = polT.clone().addScalar(challenges.gamma).mulScalar(zxiomega);
+        const polR22 = polZ.clone().mulScalar(Fr.add(fxi, challenges.gamma));
+        polR21.sub(polR22).mulScalar(challenges.alpha);
+        polR.add(polR21);
 
-            // Factor 1. L_1(𝔷)(Z(x)-1)
-            const rA_i = Fr.mul(L1xi, Fr.sub(z_i, Fr.one));
+        const polR3 = polQ.clone().mulScalar(ZHxi);
+        polR.sub(polR3);
 
-            // Factor 2. Z(𝔷·𝛚)·(t(X) + 𝜸) − Z(X)·(f(𝔷) + 𝜸)
-            const rB1_i = Fr.mul(zxiomega, Fr.add(t_i, challenges.gamma));
-            const rB2_i = Fr.mul(z_i, Fr.add(fxi, challenges.gamma));
-            let rB_i = Fr.sub(rB1_i, rB2_i);
-            // Apply alpha random factor
-            rB_i = Fr.mul(rB_i, challenges.alpha);
-
-            // Factor 3. ZH(𝔷)·q(X)
-            const rC_i = Fr.mul(ZHxi, q_i);
-
-            let r_i = Fr.add(rA_i, rB_i);
-            r_i = Fr.sub(r_i, rC_i);
-
-            evalsR.setEvaluation(i, r_i);
-
-            omega = Fr.mul(omega, Fr.w[nBits]);
-        }
-
-        if (logger) logger.debug("··· Interpolating r polynomial");
-        const polR = await Polynomial.fromEvaluations(evalsR.eval, curve, logger);
-
-        challenges.v = transcript.getChallenge();
-        logger.info("···      v  = ", Fr.toString(challenges.v));
-
-        let polWxi = new Polynomial(new Uint8Array(domainSize * Fr.n8), curve, logger);
-        let polWxiomega = new Polynomial(new Uint8Array(domainSize * Fr.n8), curve, logger);
-
-        polF.subScalar(fxi);
-        polF.divByXSubValue(challenges.xi);
-        polF.mulScalar(challenges.v);
-        polWxi.add(polF);
+        const polWxi = polF.clone().subScalar(fxi);
+        polWxi.divByXSubValue(challenges.xi);
+        polWxi.mulScalar(challenges.v);
 
         polR.divByXSubValue(challenges.xi);
         polWxi.add(polR);
 
-        polZ.subScalar(zxiomega);
-        polWxiomega.add(polZ);
+        const polWxiomega = polZ.clone().subScalar(zxiomega);
         polWxiomega.divByXSubValue(Fr.mul(challenges.xi, Fr.w[nBits]));
 
         proof.commitments["Wxi"] = await polWxi.multiExponentiation(PTau, "Wxi");

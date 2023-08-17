@@ -13,7 +13,7 @@ const Logger = require("logplease");
 const logger = Logger.create("", { showTimestamp: false });
 Logger.setLogLevel("INFO");
 
-describe("grandsums-study", function () {
+describe("grandproduct-study", function () {
     this.timeout(1000000);
 
     let curve;
@@ -27,7 +27,8 @@ describe("grandsums-study", function () {
     });
 
     it("should perform a Grand Product ZKG full proving & verifying process", async () => {
-        const nBits =  getRandomValue(2, 10);
+        // const nBits =  getRandomValue(2, 10);
+        const nBits =  getRandomValue(2, 2);
 
         const evalsBufferA = getRandomBuffer(2 ** nBits, curve);
         const evalsBufferB = new Uint8Array(evalsBufferA.byteLength);

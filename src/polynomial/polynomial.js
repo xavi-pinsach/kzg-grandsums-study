@@ -59,8 +59,20 @@ module.exports.Polynomial = class Polynomial {
         return new Polynomial(buff, curve, logger);
     }
 
-    clone(curve, logger) {
-        return Polynomial.fromPolynomial(this, curve, logger);
+    static async Lagrange1(power, curve, logger) {
+        const Fr = curve.Fr;
+
+        const buffer =
+            power > 14
+                ? new BigBuffer((1 << power) * Fr.n8)
+                : new Uint8Array((1 << power) * Fr.n8);
+        buffer.set(Fr.one, 0);
+
+        return await Polynomial.fromEvaluations(buffer, curve, logger);
+    }
+
+    clone() {
+        return Polynomial.fromPolynomial(this, this.curve, this.logger);
     }
 
     isEqual(polynomial) {
@@ -294,6 +306,8 @@ module.exports.Polynomial = class Polynomial {
             delete this.coef;
             this.coef = polynomial.coef;
         }
+
+        return this;
     }
 
     sub(polynomial, blindingValue) {
@@ -330,6 +344,8 @@ module.exports.Polynomial = class Polynomial {
             delete this.coef;
             this.coef = polynomial.coef;
         }
+
+        return this;
     }
 
     async multiply(polynomial) {
@@ -348,7 +364,7 @@ module.exports.Polynomial = class Polynomial {
         const evaluations2 = await Evaluations.fromPolynomial(polynomial, factor2, this.curve, this.logger);
 
         // Perform the multiplication
-        for(let i = 0; i < newLength; i++) {
+        for (let i = 0; i < newLength; i++) {
             const i_n8 = i * this.Fr.n8;
             const mul_i = this.Fr.mul(evaluations1.getEvaluation(i), evaluations2.getEvaluation(i));
             newBuffer.set(mul_i, i_n8);
@@ -357,6 +373,28 @@ module.exports.Polynomial = class Polynomial {
         let newCoefs = await this.curve.Fr.ifft(newBuffer);
         this.coef = newCoefs;
         return this;
+    }
+
+    async shiftOmega() {
+        const Fr = this.curve.Fr;
+        const evals = await Evaluations.fromPolynomial(
+            this,
+            1,
+            this.curve,
+            this.logger
+        );
+
+        const lengthB = evals.eval.byteLength;
+
+        const newEvals =
+            lengthB > 2 << 14
+                ? new BigBuffer(lengthB)
+                : new Uint8Array(lengthB);
+
+        newEvals.set(evals.eval.slice(Fr.n8, lengthB), 0);
+        newEvals.set(evals.eval.slice(0, Fr.n8),lengthB - Fr.n8);
+
+        this.coef = await this.curve.Fr.ifft(newEvals);
     }
 
     mulScalar(value) {
@@ -368,18 +406,24 @@ module.exports.Polynomial = class Polynomial {
                 i_n8
             );
         }
+
+        return this;
     }
 
     addScalar(value) {
         const currentValue =
             0 === this.length() ? this.Fr.zero : this.coef.slice(0, this.Fr.n8);
         this.coef.set(this.Fr.add(currentValue, value), 0);
+
+        return this;
     }
 
     subScalar(value) {
         const currentValue =
             0 === this.length() ? this.Fr.zero : this.coef.slice(0, this.Fr.n8);
         this.coef.set(this.Fr.sub(currentValue, value), 0);
+
+        return this;
     }
 
     // Multiply current polynomial by the polynomial (X - value)
@@ -649,7 +693,6 @@ module.exports.Polynomial = class Polynomial {
             }
         }
 
-        this.print();
         return polR;
     }
 
@@ -814,8 +857,9 @@ module.exports.Polynomial = class Polynomial {
         this.coef = coefs;
     }
 
-    divZh(domainSize, extensions = 4) {
-        let length = this.degree() + 1 < domainSize ? domainSize : 2 ** Math.ceil(Math.log2(this.degree() + 1 - domainSize));
+    divZh(domainSize) {
+        const extensions = this.length() / domainSize;
+        const length = this.degree() + 1 < domainSize ? domainSize : 2 ** Math.ceil(Math.log2(this.degree() + 1 - domainSize));
         const newBuffer = new Uint8Array(length * this.Fr.n8);
 
         for (let i = 0; i < domainSize; i++) {
@@ -843,6 +887,7 @@ module.exports.Polynomial = class Polynomial {
                 }
             }
         }
+
         newBuffer.set(this.coef.slice(0, (this.degree() + 1) * this.Fr.n8), 0);
 
         this.coef = newBuffer;

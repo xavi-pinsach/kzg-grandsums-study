@@ -12,7 +12,7 @@ function radomPolynomial(minDegree, maxDegree, curve) {
     return new Polynomial(getRandomBuffer(degree + 1, curve), curve);
 }
 
-describe("snarkjs: Polynomial tests", function () {
+describe("Polynomial tests", function () {
     this.timeout(150000);
 
     let curve;
@@ -214,13 +214,7 @@ describe("snarkjs: Polynomial tests", function () {
         const pol2 = Polynomial.fromCoefficientsArray([Fr.e(0), Fr.e(3), Fr.one], curve);
         const polResultant = Polynomial.fromCoefficientsArray([Fr.zero, Fr.e(6), Fr.e(2), Fr.e(-9), Fr.e(3),Fr.e(2)], curve);
 
-        pol1.print();
-        pol2.print();
-
         const polR = await pol1.multiply(pol2);
-
-        polResultant.print();
-        polR.print();
         
         assert(polResultant.isEqual(polR));
     });
