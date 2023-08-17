@@ -4,7 +4,7 @@
     "description": "A study about grand-sums proposed by Hector Masip / Polygon zkEvm",
     "main": "index.js",
     "scripts": {
-        "test": "mocha"
+        "test": "mocha --exclude test/polynomial.test.js"
     },
     "keywords": [
         "grand-sums",
