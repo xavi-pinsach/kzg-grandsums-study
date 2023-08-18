@@ -9,8 +9,6 @@ const path = require("path");
 const kzg_grandproduct_prover = require("../src/kzg_grandproduct_prover.js");
 const kzg_grandproduct_verifier = require("../src/kzg_grandproduct_verifier.js");
 
-const logger = require("../logger.js");
-
 describe("grandproduct-study", function () {
     this.timeout(1000000);
 
@@ -25,8 +23,7 @@ describe("grandproduct-study", function () {
     });
 
     it("should perform a Grand Product ZKG full proving & verifying process", async () => {
-        // const nBits =  getRandomValue(2, 10);
-        const nBits =  getRandomValue(2, 2);
+        const nBits =  getRandomValue(2, 10);
 
         const evalsBufferA = getRandomBuffer(2 ** nBits, curve);
         const evalsBufferB = new Uint8Array(evalsBufferA.byteLength);

@@ -9,10 +9,6 @@ const path = require("path");
 const kzg_grandsum_prover = require("../src/kzg_grandsum_prover.js");
 const kzg_grandsum_verifier = require("../src/kzg_grandsum_verifier.js");
 
-const Logger = require("logplease");
-const logger = Logger.create("", { showTimestamp: false });
-Logger.setLogLevel("INFO");
-
 describe("grandsums-study", function () {
     this.timeout(1000000);
 
