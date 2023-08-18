@@ -2,13 +2,13 @@ const { BigBuffer } = require("ffjavascript");
 const { Evaluations } = require("./polynomial/evaluations");
 const { Polynomial } = require("./polynomial/polynomial");
 
-module.exports = async function buildZGrandProduct(evaluationsF, evaluationsT, challenge, curve, options) {
+const logger = require("../logger.js");
+
+async function ComputeZGrandProductPolynomial(evaluationsF, evaluationsT, challenge, curve) {
     const evalsF = evaluationsF instanceof Evaluations ? evaluationsF.eval : evaluationsF;
     const evalsT = evaluationsT instanceof Evaluations ? evaluationsT.eval : evaluationsT;
 
-    const logger = options.logger;
-
-    if (logger) logger.info("··· Building the grand-roduct polynomial Z");
+    logger.info("··· Building the grand-roduct polynomial Z");
 
     if(evalsF.byteLength !== evalsT.byteLength) {
         throw new Error("Polynomials must have the same size");
@@ -26,7 +26,7 @@ module.exports = async function buildZGrandProduct(evaluationsF, evaluationsT, c
     denArr.set(curve.Fr.one, 0);
 
     for (let i = 0; i < n; i++) {
-        if (logger && (~i) && (i & 0xFFF === 0)) logger.debug(`··· Z evaluation ${i}/${n}`);
+        if ((~i) && (i & 0xFFF === 0)) logger.info(`··· Z evaluation ${i}/${n}`);
         const i_sFr = i * sFr;
 
         // num := (f + challenge)
@@ -62,10 +62,14 @@ module.exports = async function buildZGrandProduct(evaluationsF, evaluationsT, c
     }
 
     // Compute polynomial coefficients z(X) from buffers.Z
-    if (logger) logger.info("··· Computing Z ifft");
+    logger.info("··· Computing Z ifft");
     const Z = await Polynomial.fromEvaluations(numArr, curve, logger);
 
     delete denArr;
 
     return Z;
+}
+
+module.exports = {
+    ComputeZGrandProductPolynomial
 }

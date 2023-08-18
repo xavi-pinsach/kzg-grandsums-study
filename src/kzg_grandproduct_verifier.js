@@ -4,40 +4,39 @@ const { Keccak256Transcript } = require("./Keccak256Transcript");
 const readPTauHeader = require("./ptau_utils");
 const { computeZHEvaluation, computeL1Evaluation } = require("./polynomial/polynomial_utils");
 
-module.exports = async function kzg_grandproduct_verifier(proof, nBits, pTauFilename, options) {
-    const logger = options.logger;
+const logger = require("../logger.js");
 
-    if (logger) {
-        logger.info("> KZG GRAND PRODUCT VERIFIER STARTED");
-        logger.info("");
-    }
+module.exports = async function kzg_grandproduct_verifier(proof, nBits, pTauFilename) {
+    logger.info("> KZG GRAND PRODUCT VERIFIER STARTED");
 
     const { fd: fdPTau, sections: pTauSections } = await readBinFile(pTauFilename, "ptau", 1, 1 << 22, 1 << 24);
     const { curve } = await readPTauHeader(fdPTau, pTauSections);
+
     const Fr = curve.Fr;
     const G1 = curve.G1;
     const G2 = curve.G2;
 
-    const nPols = proof.commitments.length;
-    if (logger) {
-        logger.info("---------------------------------------");
-        logger.info("  KZG GRAND PRODUCT VERIFIER SETTINGS");
-        logger.info(`  Curve:       ${curve.name}`);
-        logger.info(`  Domain size: ${2 ** nBits}`);
-        logger.info("---------------------------------------");
-    }
+    const sG2 = G2.F.n8 * 2;
+    const X2 = await fdPTau.read(sG2, pTauSections[3][0].p + sG2);
+    await fdPTau.close();
+
+    logger.info("---------------------------------------");
+    logger.info("  KZG GRAND PRODUCT VERIFIER SETTINGS");
+    logger.info(`  Curve:       ${curve.name}`);
+    logger.info(`  Domain size: ${2 ** nBits}`);
+    logger.info("---------------------------------------");
 
     let challenges = {};
 
-    // STEP 1 Validate the corretness of the proof elements
+    // STEP 1. Validate the corretness of the proof elements
     logger.info("> STEP 1. Validate [f(x)]₁,[t(x)]₁,[Z(x)]₁,[Q(x)]₁,[W𝔷(x)]₁,[W𝔷·𝛚(x)]₁ ∈ 𝔾₁");
     if(!validateCommitments()) return false;
 
-    // STEP 2 Validate the corretness of the proof elements
+    // STEP 2. Validate the corretness of the proof elements
     logger.info("> STEP 2. Validate f(𝔷),Z(𝔷·𝛚) ∈ 𝔽");
     if(!validateEvaluations()) return false;
 
-    // STEP 3 Calculate challenge beta from transcript
+    // STEP 3. Calculate challenge beta from transcript
     logger.info("> STEP 3. Compute 𝜸,𝜶,𝔷,v,u");
     computeChallenges();
 
@@ -89,8 +88,7 @@ module.exports = async function kzg_grandproduct_verifier(proof, nBits, pTauFile
 
     let A1 = G1.timesFr(proof.commitments["Wxiw"], challenges.u);
     A1 = G1.add(proof.commitments["Wxi"], A1);
-    const sG2 = G2.F.n8 * 2;
-    const A2 = await fdPTau.read(sG2, pTauSections[3][0].p + sG2);
+    const A2 = X2;
 
     let B1 = Fr.mul(Fr.mul(challenges.u, challenges.xi), Fr.w[nBits]);
     B1 = G1.timesFr(proof.commitments["Wxiw"], B1);
@@ -101,15 +99,10 @@ module.exports = async function kzg_grandproduct_verifier(proof, nBits, pTauFile
 
     const isValid = await curve.pairingEq(G1.neg(A1), A2, B1, B2);
 
-    if (logger) {
-        if (isValid) logger.info("> VERIFICATION OK");
-        else logger.error("> VERIFICATION FAILED");
+    if (isValid) logger.info("> VERIFICATION OK");
+    else logger.error("> VERIFICATION FAILED");
 
-        logger.info("");
-        logger.info("> KZG BASIC VERIFIER FINISHED");
-    }
-
-    await fdPTau.close();
+    logger.info("> KZG BASIC VERIFIER FINISHED");
 
     return isValid;
 

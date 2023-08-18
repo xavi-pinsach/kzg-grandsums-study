@@ -4,13 +4,11 @@ const { Keccak256Transcript } = require("./Keccak256Transcript");
 const readPTauHeader = require("./ptau_utils");
 const { computeZHEvaluation, computeL1Evaluation } = require("./polynomial/polynomial_utils");
 
-module.exports = async function kzg_grandsum_verifier(proof, nBits, pTauFilename, options) {
-    const logger = options.logger;
+const logger = require("../logger.js");
 
-    if (logger) {
-        logger.info("> KZG GRAND SUM VERIFIER STARTED");
-        logger.info("");
-    }
+module.exports = async function kzg_grandsum_verifier(proof, nBits, pTauFilename, options) {
+    logger.info("> KZG GRAND SUM VERIFIER STARTED");
+    logger.info("");
 
     const { fd: fdPTau, sections: pTauSections } = await readBinFile(pTauFilename, "ptau", 1, 1 << 22, 1 << 24);
     const { curve } = await readPTauHeader(fdPTau, pTauSections);
@@ -18,14 +16,11 @@ module.exports = async function kzg_grandsum_verifier(proof, nBits, pTauFilename
     const G1 = curve.G1;
     const G2 = curve.G2;
 
-    const nPols = proof.commitments.length;
-    if (logger) {
-        logger.info("---------------------------------------");
-        logger.info("  KZG GRAND SUM VERIFIER SETTINGS");
-        logger.info(`  Curve:       ${curve.name}`);
-        logger.info(`  Domain size: ${2 ** nBits}`);
-        logger.info("---------------------------------------");
-    }
+    logger.info("---------------------------------------");
+    logger.info("  KZG GRAND SUM VERIFIER SETTINGS");
+    logger.info(`  Curve:       ${curve.name}`);
+    logger.info(`  Domain size: ${2 ** nBits}`);
+    logger.info("---------------------------------------");
 
     let challenges = {};
 
@@ -105,13 +100,11 @@ module.exports = async function kzg_grandsum_verifier(proof, nBits, pTauFilename
 
     const isValid = await curve.pairingEq(G1.neg(A1), A2, B1, B2);
 
-    if (logger) {
-        if (isValid) logger.info("> VERIFICATION OK");
-        else logger.error("> VERIFICATION FAILED");
+    if (isValid) logger.info("> VERIFICATION OK");
+    else logger.error("> VERIFICATION FAILED");
 
-        logger.info("");
-        logger.info("> KZG BASIC VERIFIER FINISHED");
-    }
+    logger.info("");
+    logger.info("> KZG BASIC VERIFIER FINISHED");
 
     await fdPTau.close();
 

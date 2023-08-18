@@ -7,13 +7,11 @@ const buildSGrandsum = require("./grandsum");
 const readPTauHeader = require("./ptau_utils");
 const { computeZHEvaluation, computeL1Evaluation } = require("./polynomial/polynomial_utils");
 
-module.exports = async function kzg_grandsum_prover(evalsBufferF, evalsBufferT, pTauFilename, options) {
-    const logger = options.logger;
+const logger = require("../logger.js");
 
-    if (logger) {
-        logger.info("> KZG GRAND SUM PROVER STARTED");
-        logger.info("");
-    }
+module.exports = async function kzg_grandsum_prover(evalsBufferF, evalsBufferT, pTauFilename, options) {
+    logger.info("> KZG GRAND SUM PROVER STARTED");
+    logger.info("");
 
     const { fd: fdPTau, sections: pTauSections } = await readBinFile(pTauFilename, "ptau", 1, 1 << 22, 1 << 24);
     const { curve, power: nBitsPTau } = await readPTauHeader(fdPTau, pTauSections);
@@ -46,13 +44,11 @@ module.exports = async function kzg_grandsum_prover(evalsBufferF, evalsBufferT, 
     const PTau = new BigBuffer(domainSize * 2 * sG1);
     await fdPTau.readToBuffer(PTau, 0, domainSize * 2 * sG1, pTauSections[2][0].p);
 
-    if (logger) {
-        logger.info("-------------------------------------");
-        logger.info("  KZG GRAND SUM PROVER SETTINGS");
-        logger.info(`  Curve:       ${curve.name}`);
-        logger.info(`  Domain size: ${domainSize}`);
-        logger.info("-------------------------------------");
-    }
+    logger.info("-------------------------------------");
+    logger.info("  KZG GRAND SUM PROVER SETTINGS");
+    logger.info(`  Curve:       ${curve.name}`);
+    logger.info(`  Domain size: ${domainSize}`);
+    logger.info("-------------------------------------");
 
     let proof = {evaluations: {}, commitments: {}};
     let challenges = {};
@@ -77,10 +73,8 @@ module.exports = async function kzg_grandsum_prover(evalsBufferF, evalsBufferT, 
     logger.info("> STEP 5. Compute the opening proof polynomials W𝔷, W𝔷𝛚 ∈ 𝔽[X]");
     await computeW();
 
-    if (logger) {
-        logger.info("");
-        logger.info("> KZG GRAND SUM PROVER FINISHED");
-    }
+    logger.info("");
+    logger.info("> KZG GRAND SUM PROVER FINISHED");
 
     await fdPTau.close();
 
@@ -113,7 +107,7 @@ module.exports = async function kzg_grandsum_prover(evalsBufferF, evalsBufferT, 
         logger.info("···      𝜸  =", Fr.toString(challenges.gamma));
 
         let polS = [];
-        polS = await buildSGrandsum(evalsF, evalsT, challenges.gamma, curve, { logger });
+        polS = await buildSGrandsum(evalsF, evalsT, challenges.gamma, curve);
 
         proof.commitments["S"] = await polS.multiExponentiation(PTau, `polS`);
         logger.info(`··· [S(x)]₁ =`, G1.toString(proof.commitments["S"]));

@@ -36,9 +36,9 @@ describe("grandsums-study", function () {
         evalsBufferB.set(evalsBufferA.slice(evalsBufferA.byteLength - curve.Fr.n8, evalsBufferA.byteLength), 0);
 
         const pTauFilename = path.join("tmp", "powersOfTau28_hez_final_11.ptau");
-        const proof = await kzg_grandsum_prover(evalsBufferA, evalsBufferB, pTauFilename, { logger });
+        const proof = await kzg_grandsum_prover(evalsBufferA, evalsBufferB, pTauFilename);
 
-        const isValid = await kzg_grandsum_verifier(proof, nBits, pTauFilename, { logger });
+        const isValid = await kzg_grandsum_verifier(proof, nBits, pTauFilename);
         assert.ok(isValid);
     });
 });

@@ -3,9 +3,7 @@ const yargs = require("yargs");
 const kzg_basic_prover = require("./src/kzg_basic_prover.js");
 const kzg_basic_verifier = require("./src/kzg_basic_verifier.js");
 
-const Logger = require("logplease");
-const logger = Logger.create("", { showTimestamp: false });
-Logger.setLogLevel("INFO");
+const logger = require("./logger.js");
 
 yargs
     .scriptName("kzg")
@@ -36,9 +34,9 @@ yargs
     .help().argv;
 
 async function _kzg_basic_prover() {
-    return await kzg_basic_prover({ logger });
+    return await kzg_basic_prover();
 }
 
 async function _kzg_basic_verifier(proof) {
-    return await kzg_basic_verifier(proof, { logger });
+    return await kzg_basic_verifier(proof);
 }

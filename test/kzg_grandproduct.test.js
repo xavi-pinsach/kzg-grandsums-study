@@ -9,9 +9,7 @@ const path = require("path");
 const kzg_grandproduct_prover = require("../src/kzg_grandproduct_prover.js");
 const kzg_grandproduct_verifier = require("../src/kzg_grandproduct_verifier.js");
 
-const Logger = require("logplease");
-const logger = Logger.create("", { showTimestamp: false });
-Logger.setLogLevel("INFO");
+const logger = require("../logger.js");
 
 describe("grandproduct-study", function () {
     this.timeout(1000000);
@@ -37,9 +35,9 @@ describe("grandproduct-study", function () {
         evalsBufferB.set(evalsBufferA.slice(evalsBufferA.byteLength - curve.Fr.n8, evalsBufferA.byteLength), 0);
 
         const pTauFilename = path.join("tmp", "powersOfTau28_hez_final_11.ptau");
-        const proof = await kzg_grandproduct_prover(evalsBufferA, evalsBufferB, pTauFilename, { logger });
+        const proof = await kzg_grandproduct_prover(evalsBufferA, evalsBufferB, pTauFilename);
 
-        const isValid = await kzg_grandproduct_verifier(proof, nBits, pTauFilename, { logger });
+        const isValid = await kzg_grandproduct_verifier(proof, nBits, pTauFilename);
         assert.ok(isValid);
     });
 });

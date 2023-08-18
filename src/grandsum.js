@@ -2,13 +2,13 @@ const { BigBuffer } = require("ffjavascript");
 const { Evaluations } = require("./polynomial/evaluations");
 const { Polynomial } = require("./polynomial/polynomial");
 
-module.exports = async function buildSGrandSum(evaluationsF, evaluationsT, challenge, curve, options) {
+const logger = require("../logger.js");
+
+module.exports = async function buildSGrandSum(evaluationsF, evaluationsT, challenge, curve) {
     const evalsF = evaluationsF instanceof Evaluations ? evaluationsF.eval : evaluationsF;
     const evalsT = evaluationsT instanceof Evaluations ? evaluationsT.eval : evaluationsT;
 
-    const logger = options.logger;
-
-    if (logger) logger.info("··· Building S Grand Sum polynomial");
+    logger.info("··· Building S Grand Sum polynomial");
 
     if(evalsF.byteLength !== evalsT.byteLength) {
         throw new Error("Polynomials must have the same size");
@@ -28,7 +28,7 @@ module.exports = async function buildSGrandSum(evaluationsF, evaluationsT, chall
 
     // Set initial omega
     for (let i = 0; i < n; i++) {
-        if (logger && (~i) && (i & 0xFFF === 0)) logger.debug(`··· S evaluation ${i}/${n}`);
+        if ((~i) && (i & 0xFFF === 0)) logger.info(`··· S evaluation ${i}/${n}`);
         const i_sFr = i * sFr;
 
         // f = (f + challenge)
@@ -65,7 +65,7 @@ module.exports = async function buildSGrandSum(evaluationsF, evaluationsT, chall
     }
 
     // Compute polynomial coefficients S(X) from buffers.S
-    if (logger) logger.info("··· Computing S ifft");
+    logger.info("··· Computing S ifft");
     const S = await Polynomial.fromEvaluations(numArr, curve, logger);
 
     delete denArr;
