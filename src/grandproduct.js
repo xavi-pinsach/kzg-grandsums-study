@@ -4,7 +4,7 @@ const { Polynomial } = require("./polynomial/polynomial");
 
 const logger = require("../logger.js");
 
-async function ComputeZGrandProductPolynomial(evaluationsF, evaluationsT, challenge, curve) {
+module.exports = async function ComputeZGrandProductPolynomial(evaluationsF, evaluationsT, challenge, curve) {
     const evalsF = evaluationsF instanceof Evaluations ? evaluationsF.eval : evaluationsF;
     const evalsT = evaluationsT instanceof Evaluations ? evaluationsT.eval : evaluationsT;
 
@@ -68,8 +68,4 @@ async function ComputeZGrandProductPolynomial(evaluationsF, evaluationsT, challe
     delete denArr;
 
     return Z;
-}
-
-module.exports = {
-    ComputeZGrandProductPolynomial
 }

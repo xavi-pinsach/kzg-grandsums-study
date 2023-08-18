@@ -6,15 +6,18 @@ const { computeZHEvaluation, computeL1Evaluation } = require("./polynomial/polyn
 
 const logger = require("../logger.js");
 
-module.exports = async function kzg_grandsum_verifier(proof, nBits, pTauFilename, options) {
+module.exports = async function kzg_grandsum_verifier(proof, nBits, pTauFilename) {
     logger.info("> KZG GRAND SUM VERIFIER STARTED");
-    logger.info("");
 
     const { fd: fdPTau, sections: pTauSections } = await readBinFile(pTauFilename, "ptau", 1, 1 << 22, 1 << 24);
     const { curve } = await readPTauHeader(fdPTau, pTauSections);
     const Fr = curve.Fr;
     const G1 = curve.G1;
     const G2 = curve.G2;
+
+    const sG2 = G2.F.n8 * 2;
+    const X2 = await fdPTau.read(sG2, pTauSections[3][0].p + sG2);
+    await fdPTau.close();
 
     logger.info("---------------------------------------");
     logger.info("  KZG GRAND SUM VERIFIER SETTINGS");
@@ -88,8 +91,6 @@ module.exports = async function kzg_grandsum_verifier(proof, nBits, pTauFilename
 
     let A1 = G1.timesFr(proof.commitments["Wxiw"], challenges.u);
     A1 = G1.add(proof.commitments["Wxi"], A1);
-    const sG2 = G2.F.n8 * 2;
-    const A2 = await fdPTau.read(sG2, pTauSections[3][0].p + sG2);
 
     let B1 = Fr.mul(Fr.mul(challenges.u, challenges.xi), Fr.w[nBits]);
     B1 = G1.timesFr(proof.commitments["Wxiw"], B1);
@@ -98,15 +99,12 @@ module.exports = async function kzg_grandsum_verifier(proof, nBits, pTauFilename
     B1 = G1.sub(B1, E1);
     const B2 = G2.one;
 
-    const isValid = await curve.pairingEq(G1.neg(A1), A2, B1, B2);
+    const isValid = await curve.pairingEq(G1.neg(A1), X2, B1, B2);
 
     if (isValid) logger.info("> VERIFICATION OK");
     else logger.error("> VERIFICATION FAILED");
 
-    logger.info("");
     logger.info("> KZG BASIC VERIFIER FINISHED");
-
-    await fdPTau.close();
 
     return isValid;
 

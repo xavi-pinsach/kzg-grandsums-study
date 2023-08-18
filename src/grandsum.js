@@ -4,7 +4,7 @@ const { Polynomial } = require("./polynomial/polynomial");
 
 const logger = require("../logger.js");
 
-module.exports = async function buildSGrandSum(evaluationsF, evaluationsT, challenge, curve) {
+module.exports = async function ComputeSGrandSumPolynomial(evaluationsF, evaluationsT, challenge, curve) {
     const evalsF = evaluationsF instanceof Evaluations ? evaluationsF.eval : evaluationsF;
     const evalsT = evaluationsT instanceof Evaluations ? evaluationsT.eval : evaluationsT;
 

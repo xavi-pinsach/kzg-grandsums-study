@@ -11,7 +11,6 @@ module.exports = async function kzg_grandproduct_verifier(proof, nBits, pTauFile
 
     const { fd: fdPTau, sections: pTauSections } = await readBinFile(pTauFilename, "ptau", 1, 1 << 22, 1 << 24);
     const { curve } = await readPTauHeader(fdPTau, pTauSections);
-
     const Fr = curve.Fr;
     const G1 = curve.G1;
     const G2 = curve.G2;
@@ -88,7 +87,6 @@ module.exports = async function kzg_grandproduct_verifier(proof, nBits, pTauFile
 
     let A1 = G1.timesFr(proof.commitments["Wxiw"], challenges.u);
     A1 = G1.add(proof.commitments["Wxi"], A1);
-    const A2 = X2;
 
     let B1 = Fr.mul(Fr.mul(challenges.u, challenges.xi), Fr.w[nBits]);
     B1 = G1.timesFr(proof.commitments["Wxiw"], B1);
@@ -97,7 +95,7 @@ module.exports = async function kzg_grandproduct_verifier(proof, nBits, pTauFile
     B1 = G1.sub(B1, E1);
     const B2 = G2.one;
 
-    const isValid = await curve.pairingEq(G1.neg(A1), A2, B1, B2);
+    const isValid = await curve.pairingEq(G1.neg(A1), X2, B1, B2);
 
     if (isValid) logger.info("> VERIFICATION OK");
     else logger.error("> VERIFICATION FAILED");

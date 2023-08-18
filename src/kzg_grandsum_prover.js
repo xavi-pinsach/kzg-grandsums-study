@@ -3,15 +3,14 @@ const { BigBuffer } = require("ffjavascript");
 const { Keccak256Transcript } = require("./Keccak256Transcript");
 const { Polynomial } = require("./polynomial/polynomial");
 const { Evaluations } = require("./polynomial/evaluations");
-const buildSGrandsum = require("./grandsum");
+const ComputeSGrandSumPolynomial = require("./grandsum");
 const readPTauHeader = require("./ptau_utils");
 const { computeZHEvaluation, computeL1Evaluation } = require("./polynomial/polynomial_utils");
 
 const logger = require("../logger.js");
 
-module.exports = async function kzg_grandsum_prover(evalsBufferF, evalsBufferT, pTauFilename, options) {
+module.exports = async function kzg_grandsum_prover(evalsBufferF, evalsBufferT, pTauFilename) {
     logger.info("> KZG GRAND SUM PROVER STARTED");
-    logger.info("");
 
     const { fd: fdPTau, sections: pTauSections } = await readBinFile(pTauFilename, "ptau", 1, 1 << 22, 1 << 24);
     const { curve, power: nBitsPTau } = await readPTauHeader(fdPTau, pTauSections);
@@ -19,7 +18,7 @@ module.exports = async function kzg_grandsum_prover(evalsBufferF, evalsBufferT, 
     const G1 = curve.G1;
     const sG1 = G1.F.n8 * 2;
 
-    // STEP 0. Get the settings and prepare the setup    
+    // ROUND 0. Get the settings and prepare the setup    
     evalsF = new Evaluations(evalsBufferF, curve, logger);
     evalsT = new Evaluations(evalsBufferT, curve, logger);
 
@@ -38,11 +37,12 @@ module.exports = async function kzg_grandsum_prover(evalsBufferF, evalsBufferT, 
 
     // Ensure the powers of Tau file is sufficiently large
     if (nBitsPTau < nBits) {
-        throw new Error("Powers of Tau has not enough values for this polynomial");
+        throw new Error("The Powers of Tau file is not sufficiently large to commit the polynomials");
     }
 
     const PTau = new BigBuffer(domainSize * 2 * sG1);
     await fdPTau.readToBuffer(PTau, 0, domainSize * 2 * sG1, pTauSections[2][0].p);
+    await fdPTau.close();
 
     logger.info("-------------------------------------");
     logger.info("  KZG GRAND SUM PROVER SETTINGS");
@@ -52,31 +52,27 @@ module.exports = async function kzg_grandsum_prover(evalsBufferF, evalsBufferT, 
 
     let proof = {evaluations: {}, commitments: {}};
     let challenges = {};
+    let polF, polT, polS, polQ;
 
     const transcript = new Keccak256Transcript(curve);
 
-    logger.info("> STEP 0. Generate the witness polynomials f,t ∈ 𝔽[X] from the evaluations");
-    const { polF, polT } = await computeWitnessPolynomials();
+    logger.info("> ROUND 1. Generate the witness polynomials f,t ∈ 𝔽[X] from the evaluations");
+    await computeWitnessPolynomials();
 
-    logger.info("> STEP 1. Compute the witness polynomial commitments");
-    await computeWitnessPolsCommitments();
+    logger.info("> ROUND 2. Compute the grand-sum polynomial S ∈ 𝔽[X]");
+    await ComputeSPolynomial();
 
-    logger.info("> STEP 2. Compute the grand-sum polynomial S ∈ 𝔽[X]");
-    const polS = await ComputeSPolynomial();
+    logger.info("> ROUND 3. Compute the quotient polynomial Q ∈ 𝔽[X]");
+    await computeQPolynomial();
 
-    logger.info("> STEP 3. Compute the quotient polynomial Q ∈ 𝔽[X]");
-    const polQ = await computeQPolynomial();
-
-    logger.info("> STEP 4. Compute the evaluations of the polynomials");
+    logger.info("> ROUND 4. Compute the evaluations of the polynomials");
     computeEvaluations();
 
-    logger.info("> STEP 5. Compute the opening proof polynomials W𝔷, W𝔷𝛚 ∈ 𝔽[X]");
+    logger.info("> ROUND 5. Compute the opening proof polynomials W𝔷, W𝔷𝛚 ∈ 𝔽[X]");
     await computeW();
 
     logger.info("");
     logger.info("> KZG GRAND SUM PROVER FINISHED");
-
-    await fdPTau.close();
 
     return proof;
 
@@ -86,17 +82,15 @@ module.exports = async function kzg_grandsum_prover(evalsBufferF, evalsBufferT, 
         evalsT.eval = await Fr.batchToMontgomery(evalsT.eval);
 
         // Get the polynomials from the evaluations
-        const polF = await Polynomial.fromEvaluations(evalsF.eval, curve, logger);
-        const polT = await Polynomial.fromEvaluations(evalsT.eval, curve, logger);
-        return { polF, polT };
-    }
+        polF = await Polynomial.fromEvaluations(evalsF.eval, curve, logger);
+        polT = await Polynomial.fromEvaluations(evalsT.eval, curve, logger);
 
-    async function computeWitnessPolsCommitments() {
-        proof.commitments["F"] = await polF.multiExponentiation(PTau, `polF`);
-        proof.commitments["T"] = await polT.multiExponentiation(PTau, `polT`);
+        proof.commitments["F"] = await commit(polF);
+        proof.commitments["T"] = await commit(polT);
 
         logger.info(`··· [f(x)]₁ =`, G1.toString(proof.commitments["F"]));
         logger.info(`··· [t(x)]₁ =`, G1.toString(proof.commitments["T"]));
+
     }
 
     async function ComputeSPolynomial() {
@@ -106,12 +100,10 @@ module.exports = async function kzg_grandsum_prover(evalsBufferF, evalsBufferT, 
         challenges.gamma = transcript.getChallenge();
         logger.info("···      𝜸  =", Fr.toString(challenges.gamma));
 
-        let polS = [];
-        polS = await buildSGrandsum(evalsF, evalsT, challenges.gamma, curve);
+        polS = await ComputeSGrandSumPolynomial(evalsF, evalsT, challenges.gamma, curve);
 
-        proof.commitments["S"] = await polS.multiExponentiation(PTau, `polS`);
+        proof.commitments["S"] = await commit(polS);
         logger.info(`··· [S(x)]₁ =`, G1.toString(proof.commitments["S"]));
-        return polS;
     }
 
     async function computeQPolynomial() {
@@ -140,13 +132,12 @@ module.exports = async function kzg_grandsum_prover(evalsBufferF, evalsBufferT, 
 
         await polS21.mulScalar(challenges.alpha);
 
-        const polQ = polS1.add(polS21);
+        polQ = polS1.add(polS21);
 
         polQ.divZh(domainSize);
 
-        proof.commitments["Q"] = await polQ.multiExponentiation(PTau, `polQ`);
+        proof.commitments["Q"] = await commit(polQ);
         logger.info(`··· [Q(x)]₁ =`, G1.toString(proof.commitments["Q"]));
-        return polQ;
     }
 
     function computeEvaluations() {
@@ -213,9 +204,13 @@ module.exports = async function kzg_grandsum_prover(evalsBufferF, evalsBufferT, 
         const polWxiomega = polS.clone().subScalar(sxiomega);
         polWxiomega.divByXSubValue(Fr.mul(challenges.xi, Fr.w[nBits]));
 
-        proof.commitments["Wxi"] = await polWxi.multiExponentiation(PTau, "Wxi");
-        proof.commitments["Wxiw"] = await polWxiomega.multiExponentiation(PTau, "Wxiomega");
+        proof.commitments["Wxi"] = await commit(polWxi);
+        proof.commitments["Wxiw"] = await commit(polWxiomega);
         logger.info("··· [W𝔷(x)]₁   =", G1.toString(proof.commitments["Wxi"]));
         logger.info("··· [W𝔷·𝛚(x)]₁ =", G1.toString(proof.commitments["Wxiw"]));
+    }
+
+    async function commit(polynomial, name) {
+        return await polynomial.multiExponentiation(PTau, name);
     }
 }

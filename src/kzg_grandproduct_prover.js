@@ -3,14 +3,13 @@ const { BigBuffer } = require("ffjavascript");
 const { Keccak256Transcript } = require("./Keccak256Transcript");
 const { Polynomial } = require("./polynomial/polynomial");
 const { Evaluations } = require("./polynomial/evaluations");
-const { ComputeZGrandProductPolynomial } = require("./grandproduct");
+const ComputeZGrandProductPolynomial = require("./grandproduct");
 const readPTauHeader = require("./ptau_utils");
 const { computeZHEvaluation, computeL1Evaluation } = require("./polynomial/polynomial_utils");
 
 const logger = require("../logger.js");
 
-module.exports = async function kzg_grandproduct_prover(evalsBufferF, evalsBufferT, pTauFilename, options) {
-
+module.exports = async function kzg_grandproduct_prover(evalsBufferF, evalsBufferT, pTauFilename) {
     logger.info("> KZG GRAND PRODUCT PROVER STARTED");
 
     const { fd: fdPTau, sections: pTauSections } = await readBinFile(pTauFilename, "ptau", 1, 1 << 22, 1 << 24);
