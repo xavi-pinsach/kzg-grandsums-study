@@ -100,7 +100,7 @@ module.exports = async function kzg_grandsum_prover(evalsBufferF, evalsBufferT, 
         challenges.gamma = transcript.getChallenge();
         logger.info("···      𝜸  =", Fr.toString(challenges.gamma));
 
-        polS = await ComputeSGrandSumPolynomial(evalsF, evalsT, challenges.gamma, curve);
+        polS = await ComputeSGrandSumPolynomial([[evalsF, evalsT]], challenges.gamma, curve);
 
         proof.commitments["S"] = await commit(polS);
         logger.info(`··· [S(x)]₁ =`, G1.toString(proof.commitments["S"]));

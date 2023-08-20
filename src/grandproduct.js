@@ -4,68 +4,61 @@ const { Polynomial } = require("./polynomial/polynomial");
 
 const logger = require("../logger.js");
 
-module.exports = async function ComputeZGrandProductPolynomial(evaluationsF, evaluationsT, challenge, curve) {
-    const evalsF = evaluationsF instanceof Evaluations ? evaluationsF.eval : evaluationsF;
-    const evalsT = evaluationsT instanceof Evaluations ? evaluationsT.eval : evaluationsT;
+module.exports = async function ComputeZGrandProductPolynomial(evaluations, challenge, curve) {
+    const Fr = curve.Fr;
+    const evalsF = evaluations[0][0];
+    const evalsT = evaluations[0][1];
 
     logger.info("··· Building the grand-roduct polynomial Z");
 
-    if(evalsF.byteLength !== evalsT.byteLength) {
+    if(evalsF.length() !== evalsT.length()) {
         throw new Error("Polynomials must have the same size");
     }
 
     //Check polF and polT buffers length are the same
-    const sFr = curve.Fr.n8;
-    const n = evalsF.byteLength / sFr;
+    const n = evalsF.length();
 
-    let numArr = new BigBuffer(evalsF.byteLength);
-    let denArr = new BigBuffer(evalsF.byteLength);
+    let numArr = new BigBuffer(evalsF.length() * Fr.n8);
+    let denArr = new BigBuffer(evalsF.length() * Fr.n8);
 
     // Set the first values to 1
-    numArr.set(curve.Fr.one, 0);
-    denArr.set(curve.Fr.one, 0);
+    numArr.set(Fr.one, 0);
+    denArr.set(Fr.one, 0);
 
     for (let i = 0; i < n; i++) {
         if ((~i) && (i & 0xFFF === 0)) logger.info(`··· Z evaluation ${i}/${n}`);
-        const i_sFr = i * sFr;
+        const i_sFr = i * Fr.n8;
 
-        // num := (f + challenge)
-        let num = curve.Fr.add(evalsF.slice(i_sFr, i_sFr + sFr), challenge);
+        // num := (f + challenge), den := (t + challenge)
+        let num = Fr.add(evalsF.getEvaluation(i), challenge);
+        let den = Fr.add(evalsT.getEvaluation(i), challenge);
 
-        // den := (t + challenge)
-        let den = curve.Fr.add(evalsT.slice(i_sFr, i_sFr + sFr), challenge);
+        // Multiply the current num or den value with the previous value stored  in numArr or denArr, respectively
+        num = Fr.mul(numArr.slice(i_sFr, i_sFr + Fr.n8), num);
+        den = Fr.mul(denArr.slice(i_sFr, i_sFr + Fr.n8), den);
 
-        // Multiply current num value with the previous one saved in numArr
-        num = curve.Fr.mul(numArr.slice(i_sFr, i_sFr + sFr), num);
-        numArr.set(num, ((i + 1) % n) * sFr);
-
-        // Multiply current den value with the previous one saved in denArr
-        den = curve.Fr.mul(denArr.slice(i_sFr, i_sFr + sFr), den);
-        denArr.set(den, ((i + 1) % n) * sFr);
+        numArr.set(num, ((i + 1) % n) * Fr.n8);
+        denArr.set(den, ((i + 1) % n) * Fr.n8);
     }
     // Compute the inverse of denArr to compute in the next step the
     // division numArr/denArr by multiplying num · 1/denArr
-    denArr = await curve.Fr.batchInverse(denArr);
+    denArr = await Fr.batchInverse(denArr);
 
-    // Multiply numArr · denArr where denArr was inverted in the previous command
+    // Perform element-wise multiplication numArr · denArr, where denArr was inverted in the previous command
     for (let i = 0; i < n; i++) {
-        const i_sFr = i * sFr;
+        const i_sFr = i * Fr.n8;
 
-        const z = curve.Fr.mul(numArr.slice(i_sFr, i_sFr + sFr), denArr.slice(i_sFr, i_sFr + sFr));
+        const z = Fr.mul(numArr.slice(i_sFr, i_sFr + Fr.n8), denArr.slice(i_sFr, i_sFr + Fr.n8));
         numArr.set(z, i_sFr);
     }
     
     // From now on the values saved on numArr will be Z(X) evaluations buffer
 
-    if (!curve.Fr.eq(numArr.slice(0, sFr), curve.Fr.one)) {
-        throw new Error("The grand-product Z is not well computed");
+    if (!Fr.eq(numArr.slice(0, Fr.n8), Fr.one)) {
+        throw new Error("The grand-product Z(x) is not well computed");
     }
 
     // Compute polynomial coefficients z(X) from buffers.Z
     logger.info("··· Computing Z ifft");
-    const Z = await Polynomial.fromEvaluations(numArr, curve, logger);
-
-    delete denArr;
-
-    return Z;
+    return await Polynomial.fromEvaluations(numArr, curve, logger);
 }

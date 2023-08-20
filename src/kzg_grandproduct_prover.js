@@ -98,7 +98,7 @@ module.exports = async function kzg_grandproduct_prover(evalsBufferF, evalsBuffe
         challenges.gamma = transcript.getChallenge();
         logger.info("···      𝜸  =", Fr.toString(challenges.gamma));
     
-        polZ = await ComputeZGrandProductPolynomial(evalsF, evalsT, challenges.gamma, curve, logger);
+        polZ = await ComputeZGrandProductPolynomial([[evalsF, evalsT]], challenges.gamma, curve, logger);
     
         proof.commitments["Z"] = await commit(polZ);
         logger.info(`··· [Z(x)]₁ =`, G1.toString(proof.commitments["Z"]));
