@@ -117,8 +117,8 @@ module.exports = async function kzg_grandsum_prover(pTauFilename, evalsBufferF, 
                 proof.commitments[`F${i}`] = await commit(polFs[i]);
                 proof.commitments[`T${i}`] = await commit(polTs[i]);
     
-                logger.info(`··· [f${i}(x)]₁ =`, G1.toString(proof.commitments[`F${i}`]));
-                logger.info(`··· [t${i}(x)]₁ =`, G1.toString(proof.commitments[`T${i}`]));
+                logger.info(`··· [f${i+1}(x)]₁ =`, G1.toString(proof.commitments[`F${i}`]));
+                logger.info(`··· [t${i+1}(x)]₁ =`, G1.toString(proof.commitments[`T${i}`]));
             } else {
                 evalsF = evalsFs[0];
                 evalsT = evalsTs[0];

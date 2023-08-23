@@ -6,7 +6,7 @@ const { computeZHEvaluation, computeL1Evaluation } = require("./polynomial/polyn
 
 const logger = require("../logger.js");
 
-module.exports = async function kzg_grandproduct_verifier(proof, nBits, pTauFilename) {
+module.exports = async function kzg_grandproduct_verifier(pTauFilename, proof, nBits) {
     logger.info("> KZG GRAND PRODUCT VERIFIER STARTED");
 
     const { fd: fdPTau, sections: pTauSections } = await readBinFile(pTauFilename, "ptau", 1, 1 << 22, 1 << 24);
@@ -35,7 +35,7 @@ module.exports = async function kzg_grandproduct_verifier(proof, nBits, pTauFile
     logger.info("> STEP 2. Validate f(𝔷),Z(𝔷·𝛚) ∈ 𝔽");
     if(!validateEvaluations()) return false;
 
-    // STEP 3. Calculate challenge beta from transcript
+    // STEP 3. Calculate challenges from transcript
     logger.info("> STEP 3. Compute 𝜸,𝜶,𝔷,v,u");
     computeChallenges();
 
