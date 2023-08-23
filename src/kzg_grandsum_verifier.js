@@ -6,7 +6,7 @@ const { computeZHEvaluation, computeL1Evaluation } = require("./polynomial/polyn
 
 const logger = require("../logger.js");
 
-module.exports = async function kzg_grandsum_verifier(proof, nBits, pTauFilename) {
+module.exports = async function kzg_grandsum_verifier(pTauFilename, proof, nBits, nPols = 1) {
     logger.info("> KZG GRAND SUM VERIFIER STARTED");
 
     const { fd: fdPTau, sections: pTauSections } = await readBinFile(pTauFilename, "ptau", 1, 1 << 22, 1 << 24);

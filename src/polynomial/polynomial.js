@@ -59,6 +59,10 @@ module.exports.Polynomial = class Polynomial {
         return new Polynomial(buff, curve, logger);
     }
 
+    static zero(curve, logger) {
+        return new Polynomial(new BigBuffer(0), curve, logger);
+    }
+
     static async Lagrange1(power, curve, logger) {
         const Fr = curve.Fr;
 

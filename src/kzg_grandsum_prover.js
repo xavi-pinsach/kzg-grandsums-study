@@ -9,8 +9,10 @@ const { computeZHEvaluation, computeL1Evaluation } = require("./polynomial/polyn
 
 const logger = require("../logger.js");
 
-module.exports = async function kzg_grandsum_prover(evalsBufferF, evalsBufferT, pTauFilename) {
+module.exports = async function kzg_grandsum_prover(pTauFilename, evalsBufferF, evalsBufferT, nPols = 1) {
     logger.info("> KZG GRAND SUM PROVER STARTED");
+
+    if (nPols < 1) throw new Error("The number of polynomials must be greater than 0.");
 
     const { fd: fdPTau, sections: pTauSections } = await readBinFile(pTauFilename, "ptau", 1, 1 << 22, 1 << 24);
     const { curve, power: nBitsPTau } = await readPTauHeader(fdPTau, pTauSections);
@@ -18,26 +20,31 @@ module.exports = async function kzg_grandsum_prover(evalsBufferF, evalsBufferT, 
     const G1 = curve.G1;
     const sG1 = G1.F.n8 * 2;
 
-    // ROUND 0. Get the settings and prepare the setup    
-    evalsF = new Evaluations(evalsBufferF, curve, logger);
-    evalsT = new Evaluations(evalsBufferT, curve, logger);
+    let evalsFs = [];
+    let evalsTs = [];
+    for (let i = 0; i < nPols; i++) {
+        evalsFs.push(new Evaluations(evalsBufferF[i], curve, logger));
+        evalsTs.push(new Evaluations(evalsBufferT[i], curve, logger));
 
-    // Ensure all polynomials have the same length
-    if (evalsF.length() !== evalsT.length()) {
-        throw new Error("Both buffers must have the same length.");
+        // Ensure all polynomials have the same length
+        if (evalsFs[i].length() !== evalsTs[i].length()) {
+            throw new Error(`The ${i}-th buffers must have the same length.`);
+        } else if (evalsFs[i].length() !== evalsFs[0].length()) {
+            throw new Error("The buffers must all have the same length.");
+        }
     }
 
-    const nBits = Math.ceil(Math.log2(evalsT.length()));
+    const nBits = Math.ceil(Math.log2(evalsFs[0].length()));
     const domainSize = 2 ** nBits;
 
-    // Ensure the polynomial has a length that is equal to domainSize
-    if (evalsT.length() !== domainSize) {
-        throw new Error("Polynomial length must be equal to the domain size.");
+    // Ensure the polynomial has a length that is equal to a power of two
+    if (evalsFs[0].length() !== domainSize) {
+        throw new Error("Polynomial length must be a power of two.");
     }
 
     // Ensure the powers of Tau file is sufficiently large
     if (nBitsPTau < nBits) {
-        throw new Error("The Powers of Tau file is not sufficiently large to commit the polynomials");
+        throw new Error("The Powers of Tau file is not sufficiently large to commit the polynomials.");
     }
 
     const PTau = new BigBuffer(domainSize * 2 * sG1);
@@ -52,23 +59,42 @@ module.exports = async function kzg_grandsum_prover(evalsBufferF, evalsBufferT, 
 
     let proof = {evaluations: {}, commitments: {}};
     let challenges = {};
-    let polF, polT, polS, polQ;
+    let polFs = new Array(nPols);
+    let polTs = new Array(nPols);
+    let polF, polT, evalsF, evalsT;
+    let polS, polQ;
 
     const transcript = new Keccak256Transcript(curve);
 
-    logger.info("> ROUND 1. Generate the witness polynomials f,t ∈ 𝔽[X] from the evaluations");
+    const isVector = nPols > 1;
+    let round = 1;
+    if (isVector) {
+        logger.info(`> ROUND ${round}. Generate the witness polynomials fᵢ,tᵢ ∈ 𝔽[X] from the evaluations, for i ∈ [${nPols}]`);
+    } else {
+        logger.info(`> ROUND ${round}. Generate the witness polynomials f,t ∈ 𝔽[X] from the evaluations`);
+    }
     await computeWitnessPolynomials();
+    ++round;
 
-    logger.info("> ROUND 2. Compute the grand-sum polynomial S ∈ 𝔽[X]");
+    if (isVector) {
+        logger.info(`> ROUND ${round}. Generate the randomly combined polynomials f,t ∈ 𝔽[X]`);
+        await computeRandCombPolynomials();
+        ++round;
+    }
+
+    logger.info(`> ROUND ${round}. Compute the grand-sum polynomial S ∈ 𝔽[X]`);
     await ComputeSPolynomial();
+    ++round;
 
-    logger.info("> ROUND 3. Compute the quotient polynomial Q ∈ 𝔽[X]");
+    logger.info(`> ROUND ${round}. Compute the quotient polynomial Q ∈ 𝔽[X]`);
     await computeQPolynomial();
+    ++round;
 
-    logger.info("> ROUND 4. Compute the evaluations of the polynomials");
+    logger.info(`> ROUND ${round}. Compute the evaluations of the polynomials`);
     computeEvaluations();
+    ++round;
 
-    logger.info("> ROUND 5. Compute the opening proof polynomials W𝔷, W𝔷𝛚 ∈ 𝔽[X]");
+    logger.info(`> ROUND ${round}. Compute the opening proof polynomials W𝔷, W𝔷𝛚 ∈ 𝔽[X]`);
     await computeW();
 
     logger.info("");
@@ -77,20 +103,61 @@ module.exports = async function kzg_grandsum_prover(evalsBufferF, evalsBufferT, 
     return proof;
 
     async function computeWitnessPolynomials() {
-        // Convert the evaluations to Montgomery form
-        evalsF.eval = await Fr.batchToMontgomery(evalsF.eval);
-        evalsT.eval = await Fr.batchToMontgomery(evalsT.eval);
+        for (let i = 0; i < nPols; i++) {
+            // Convert the evaluations to Montgomery form
+            evalsFs[i].eval = await Fr.batchToMontgomery(evalsFs[i].eval);
+            evalsTs[i].eval = await Fr.batchToMontgomery(evalsTs[i].eval);
 
-        // Get the polynomials from the evaluations
-        polF = await Polynomial.fromEvaluations(evalsF.eval, curve, logger);
-        polT = await Polynomial.fromEvaluations(evalsT.eval, curve, logger);
+            // Get the polynomials from the evaluations
+            polFs[i] = await Polynomial.fromEvaluations(evalsFs[i].eval, curve, logger);
+            polTs[i] = await Polynomial.fromEvaluations(evalsTs[i].eval, curve, logger);
+
+            // TODO: I am checking the vector condition at each iteration, can I do it only once without coding overload?
+            if (isVector) {
+                proof.commitments[`F${i}`] = await commit(polFs[i]);
+                proof.commitments[`T${i}`] = await commit(polTs[i]);
+    
+                logger.info(`··· [f${i}(x)]₁ =`, G1.toString(proof.commitments[`F${i}`]));
+                logger.info(`··· [t${i}(x)]₁ =`, G1.toString(proof.commitments[`T${i}`]));
+            } else {
+                evalsF = evalsFs[0];
+                evalsT = evalsTs[0];
+                polF = polFs[0];
+                polT = polTs[0];
+
+                proof.commitments["F"] = await commit(polF);
+                proof.commitments["T"] = await commit(polT);
+    
+                logger.info("··· [f(x)]₁ =", G1.toString(proof.commitments["F"]));
+                logger.info("··· [t(x)]₁ =", G1.toString(proof.commitments["T"]));
+            }
+
+        }
+    }
+
+    async function computeRandCombPolynomials() {
+        for (let i = 0; i < nPols; i++) {
+            transcript.addPolCommitment(proof.commitments[`F${i}`]);
+            transcript.addPolCommitment(proof.commitments[`T${i}`]);
+        }
+
+        challenges.beta = transcript.getChallenge();
+        logger.info("···      𝛃  =", Fr.toString(challenges.beta));
+
+        polF = Polynomial.zero(curve, logger);
+        polT = Polynomial.zero(curve, logger);
+        for (let i = nPols - 1; i >= 0; i--) {
+            polF.mulScalar(challenges.beta).add(polFs[i]);
+            polT.mulScalar(challenges.beta).add(polTs[i]);
+        }
+
+        evalsF = await Evaluations.fromPolynomial(polF, 1, curve, logger);
+        evalsT = await Evaluations.fromPolynomial(polT, 1, curve, logger);
 
         proof.commitments["F"] = await commit(polF);
         proof.commitments["T"] = await commit(polT);
-
         logger.info(`··· [f(x)]₁ =`, G1.toString(proof.commitments["F"]));
         logger.info(`··· [t(x)]₁ =`, G1.toString(proof.commitments["T"]));
-
     }
 
     async function ComputeSPolynomial() {
