@@ -9,7 +9,7 @@ const { computeZHEvaluation, computeL1Evaluation } = require("./polynomial/polyn
 
 const logger = require("../logger.js");
 
-module.exports = async function kzg_grandproduct_prover(pTauFilename, evalsBufferF, evalsBufferT) {
+module.exports = async function mset_eq_kzg_grandproduct_prover(pTauFilename, evalsBufferF, evalsBufferT) {
     logger.info("> KZG GRAND PRODUCT PROVER STARTED");
 
     const { fd: fdPTau, sections: pTauSections } = await readBinFile(pTauFilename, "ptau", 1, 1 << 22, 1 << 24);

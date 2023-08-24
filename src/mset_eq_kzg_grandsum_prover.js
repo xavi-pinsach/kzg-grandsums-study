@@ -9,7 +9,7 @@ const { computeZHEvaluation, computeL1Evaluation } = require("./polynomial/polyn
 
 const logger = require("../logger.js");
 
-module.exports = async function kzg_grandsum_prover(pTauFilename, evalsBufferF, evalsBufferT, nPols = 1) {
+module.exports = async function mset_eq_kzg_grandsum_prover(pTauFilename, evalsBufferF, evalsBufferT, nPols = 1) {
     logger.info("> KZG GRAND SUM PROVER STARTED");
 
     if (nPols < 1) throw new Error("The number of polynomials must be greater than 0.");

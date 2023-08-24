@@ -6,10 +6,10 @@ const {
 } = require("./test.utils.js");
 const path = require("path");
 
-const kzg_grandsum_prover = require("../src/kzg_grandsum_prover.js");
-const kzg_grandsum_verifier = require("../src/kzg_grandsum_verifier.js");
+const mset_eq_kzg_grandsum_prover = require("../src/mset_eq_kzg_grandsum_prover.js");
+const mset_eq_kzg_grandsum_verifier = require("../src/mset_eq_kzg_grandsum_verifier.js");
 
-describe("grandsums-study", function () {
+describe("Protocols based on grand-sums", function () {
     this.timeout(1000000);
 
     let curve;
@@ -22,7 +22,7 @@ describe("grandsums-study", function () {
         await curve.terminate();
     });
 
-    it("should perform a Grand Sum ZKG full proving & verifying process", async () => {
+    it("Should perform the full proving and verifying process of a SNARK for multiset equalities, based on grand-sums and KZG", async () => {
         const nBits =  getRandomValue(2, 10);
 
         let evalsBufferF = new Array(1);
@@ -34,13 +34,13 @@ describe("grandsums-study", function () {
         evalsBufferT[0].set(evalsBufferF[0].slice(evalsBufferF[0].byteLength - curve.Fr.n8, evalsBufferF[0].byteLength), 0);
 
         const pTauFilename = path.join("tmp", "powersOfTau28_hez_final_11.ptau");
-        const proof = await kzg_grandsum_prover(pTauFilename, evalsBufferF, evalsBufferT);
+        const proof = await mset_eq_kzg_grandsum_prover(pTauFilename, evalsBufferF, evalsBufferT);
 
-        const isValid = await kzg_grandsum_verifier(pTauFilename, proof, nBits);
+        const isValid = await mset_eq_kzg_grandsum_verifier(pTauFilename, proof, nBits);
         assert.ok(isValid);
     });
 
-    it("should perform a Grand Sum Vector ZKG full proving & verifying process", async () => {
+    it("Should perform the full proving and verifying process of a SNARK for vector multiset equalities, based on grand-sums and KZG", async () => {
         const nPols =  getRandomValue(2, 10);
         const nBits =  getRandomValue(2, 10);
 
@@ -55,9 +55,9 @@ describe("grandsums-study", function () {
         }
 
         const pTauFilename = path.join("tmp", "powersOfTau28_hez_final_11.ptau");
-        const proof = await kzg_grandsum_prover(pTauFilename, evalsBufferF, evalsBufferT, nPols);
+        const proof = await mset_eq_kzg_grandsum_prover(pTauFilename, evalsBufferF, evalsBufferT, nPols);
 
-        const isValid = await kzg_grandsum_verifier(pTauFilename, proof, nBits, nPols);
+        const isValid = await mset_eq_kzg_grandsum_verifier(pTauFilename, proof, nBits, nPols);
         assert.ok(isValid);
     });
 });
