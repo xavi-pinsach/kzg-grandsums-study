@@ -28,7 +28,7 @@ Before running the tests, you need to create a `tmp` folder in the root of the r
 ## TODO List
 - [ ] Benchmarking: Compare grand-product vs. grand-sum (either single ones or multiple ones).
 - [x] Implement NTT-based polynomial arithmetic to be able to operate over the coefficients. Also $O(n\log(n))$ vs $O(n^2)$.
-- [ ] Fix the edge case where `nBits = 1`.
+- [x] Fix the edge case where `nBits = 1`.
 - [x] Generalize the API/protocol to run in the case of a vector multiset equality.
 - [ ] Generalize the API/protocol to run in the case of selected vector multiset equality.
 - [ ] Generalize the API/protocol to run in the case of multiple multiset equality checks.

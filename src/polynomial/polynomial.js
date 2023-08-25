@@ -349,7 +349,7 @@ module.exports.Polynomial = class Polynomial {
 
     async multiply(polynomial) {
         const newDegree = this.degree() + polynomial.degree();
-        const newPower = Math.ceil(Math.log2(newDegree));
+        const newPower = Math.ceil(Math.log2(newDegree + 1));
         const newLength = 1 << newPower;
         const newBuffer = new Uint8Array(newLength * this.Fr.n8);
 
