@@ -9,10 +9,14 @@ const { computeZHEvaluation, computeL1Evaluation } = require("./polynomial/polyn
 
 const logger = require("../logger.js");
 
-module.exports = async function mset_eq_kzg_grandsum_prover(pTauFilename, evalsBufferF, evalsBufferT, nPols = 1) {
+module.exports = async function mset_eq_kzg_grandsum_prover(pTauFilename, evalsBufferF, evalsBufferT) {
     logger.info("> KZG GRAND SUM PROVER STARTED");
 
-    if (nPols < 1) throw new Error("The number of polynomials must be greater than 0.");
+    if (evalsBufferF.length !== evalsBufferT.length)
+        throw new Error(`The lengths of the two vector multisets must be the same.`);
+    const nPols = evalsBufferF.length;
+    if (nPols === 0)
+        throw new Error(`The number of multisets must be greater than 0.`);
 
     const { fd: fdPTau, sections: pTauSections } = await readBinFile(pTauFilename, "ptau", 1, 1 << 22, 1 << 24);
     const { curve, power: nBitsPTau } = await readPTauHeader(fdPTau, pTauSections);
@@ -20,11 +24,11 @@ module.exports = async function mset_eq_kzg_grandsum_prover(pTauFilename, evalsB
     const G1 = curve.G1;
     const sG1 = G1.F.n8 * 2;
 
-    let evalsFs = [];
-    let evalsTs = [];
+    let evalsFs = new Array(nPols);
+    let evalsTs = new Array(nPols);
     for (let i = 0; i < nPols; i++) {
-        evalsFs.push(new Evaluations(evalsBufferF[i], curve, logger));
-        evalsTs.push(new Evaluations(evalsBufferT[i], curve, logger));
+        evalsFs[i] = new Evaluations(evalsBufferF[i], curve, logger);
+        evalsTs[i] = new Evaluations(evalsBufferT[i], curve, logger);
 
         // Ensure all polynomials have the same length
         if (evalsFs[i].length() !== evalsTs[i].length()) {
@@ -76,11 +80,9 @@ module.exports = async function mset_eq_kzg_grandsum_prover(pTauFilename, evalsB
     await computeWitnessPolynomials();
     ++round;
 
-    if (isVector) {
-        logger.info(`> ROUND ${round}. Generate the randomly combined polynomials f,t ∈ 𝔽[X]`);
-        await computeRandCombPolynomials();
-        ++round;
-    }
+    if (isVector) logger.info(`> ROUND ${round}. Generate the randomly combined polynomials f,t ∈ 𝔽[X]`);
+    await computeFPolynomial();
+    if (isVector) ++round;
 
     logger.info(`> ROUND ${round}. Compute the grand-sum polynomial S ∈ 𝔽[X]`);
     await ComputeSPolynomial();
@@ -112,47 +114,44 @@ module.exports = async function mset_eq_kzg_grandsum_prover(pTauFilename, evalsB
             polFs[i] = await Polynomial.fromEvaluations(evalsFs[i].eval, curve, logger);
             polTs[i] = await Polynomial.fromEvaluations(evalsTs[i].eval, curve, logger);
 
-            // TODO: I am checking the vector condition at each iteration, can I do it only once without coding overload?
             if (isVector) {
                 proof.commitments[`F${i}`] = await commit(polFs[i]);
                 proof.commitments[`T${i}`] = await commit(polTs[i]);
     
                 logger.info(`··· [f${i+1}(x)]₁ =`, G1.toString(proof.commitments[`F${i}`]));
                 logger.info(`··· [t${i+1}(x)]₁ =`, G1.toString(proof.commitments[`T${i}`]));
-            } else {
-                evalsF = evalsFs[0];
-                evalsT = evalsTs[0];
-                polF = polFs[0];
-                polT = polTs[0];
-
-                proof.commitments["F"] = await commit(polF);
-                proof.commitments["T"] = await commit(polT);
-    
-                logger.info("··· [f(x)]₁ =", G1.toString(proof.commitments["F"]));
-                logger.info("··· [t(x)]₁ =", G1.toString(proof.commitments["T"]));
             }
-
         }
     }
 
-    async function computeRandCombPolynomials() {
-        for (let i = 0; i < nPols; i++) {
-            transcript.addPolCommitment(proof.commitments[`F${i}`]);
-            transcript.addPolCommitment(proof.commitments[`T${i}`]);
+    async function computeFPolynomial() {
+        if (isVector) {
+            // Compute the random linear combination of the polynomials fᵢ,tᵢ ∈ 𝔽[X]
+            for (let i = 0; i < nPols; i++) {
+                transcript.addPolCommitment(proof.commitments[`F${i}`]);
+                transcript.addPolCommitment(proof.commitments[`T${i}`]);
+            }
+
+            challenges.beta = transcript.getChallenge();
+            logger.info("···      𝛃  =", Fr.toString(challenges.beta));
+
+            polF = Polynomial.zero(curve, logger);
+            polT = Polynomial.zero(curve, logger);
+            for (let i = nPols - 1; i >= 0; i--) {
+                polF.mulScalar(challenges.beta).add(polFs[i]);
+                polT.mulScalar(challenges.beta).add(polTs[i]);
+            }
+
+            evalsF = await Evaluations.fromPolynomial(polF, 1, curve, logger);
+            evalsT = await Evaluations.fromPolynomial(polT, 1, curve, logger);
+        } else {
+            // If there is only one polynomial, use it as f(x)
+            polF = polFs[0];
+            polT = polTs[0];
+
+            evalsF = evalsFs[0];
+            evalsT = evalsTs[0];
         }
-
-        challenges.beta = transcript.getChallenge();
-        logger.info("···      𝛃  =", Fr.toString(challenges.beta));
-
-        polF = Polynomial.zero(curve, logger);
-        polT = Polynomial.zero(curve, logger);
-        for (let i = nPols - 1; i >= 0; i--) {
-            polF.mulScalar(challenges.beta).add(polFs[i]);
-            polT.mulScalar(challenges.beta).add(polTs[i]);
-        }
-
-        evalsF = await Evaluations.fromPolynomial(polF, 1, curve, logger);
-        evalsT = await Evaluations.fromPolynomial(polT, 1, curve, logger);
 
         proof.commitments["F"] = await commit(polF);
         proof.commitments["T"] = await commit(polT);
@@ -167,7 +166,7 @@ module.exports = async function mset_eq_kzg_grandsum_prover(pTauFilename, evalsB
         challenges.gamma = transcript.getChallenge();
         logger.info("···      𝜸  =", Fr.toString(challenges.gamma));
 
-        polS = await ComputeSGrandSumPolynomial([[evalsF, evalsT]], challenges.gamma, curve);
+        polS = await ComputeSGrandSumPolynomial(evalsF, evalsT, challenges.gamma, curve);
 
         proof.commitments["S"] = await commit(polS);
         logger.info(`··· [S(x)]₁ =`, G1.toString(proof.commitments["S"]));

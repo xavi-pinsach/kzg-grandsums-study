@@ -1,18 +1,15 @@
 const { BigBuffer } = require("ffjavascript");
-const { Evaluations } = require("./polynomial/evaluations");
 const { Polynomial } = require("./polynomial/polynomial");
 
 const logger = require("../logger.js");
 
-module.exports = async function ComputeSGrandSumPolynomial(evaluations, challenge, curve) {
+module.exports = async function ComputeSGrandSumPolynomial(evalsF, evalsT, challenge, curve) {
     const Fr = curve.Fr;
-    const evalsF = evaluations[0][0];
-    const evalsT = evaluations[0][1];
 
     logger.info("··· Building S Grand Sum polynomial");
 
     if(evalsF.length() !== evalsT.length()) {
-        throw new Error("Polynomials must have the same size");
+        throw new Error("Evaluations must have the same size");
     }
 
     //Check polF and polT buffers length are the same

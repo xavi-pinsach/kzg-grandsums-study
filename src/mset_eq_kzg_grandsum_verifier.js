@@ -29,15 +29,14 @@ module.exports = async function mset_eq_kzg_grandsum_verifier(pTauFilename, proo
     const isVector = nPols > 1;
     let step = 1;
 
+    let pols = "";
     if (isVector) {
-        let pols = "";
         for (let i = 1; i <= nPols; i++) {
             pols += `[f${i}(x)]₁,[t${i}(x)]₁,`;
         }
-        logger.info(`> STEP ${step}. Validate ${pols}[f(x)]₁,[t(x)]₁,[S(x)]₁,[Q(x)]₁,[W𝔷(x)]₁,[W𝔷·𝛚(x)]₁ ∈ 𝔾₁`);
-    } else {
-        logger.info(`> STEP ${step}. Validate [f(x)]₁,[t(x)]₁,[S(x)]₁,[Q(x)]₁,[W𝔷(x)]₁,[W𝔷·𝛚(x)]₁ ∈ 𝔾₁`);
     }
+    logger.info(`> STEP ${step}. Validate ${pols}[f(x)]₁,[t(x)]₁,[S(x)]₁,[Q(x)]₁,[W𝔷(x)]₁,[W𝔷·𝛚(x)]₁ ∈ 𝔾₁`);
+
     if(!validateCommitments()) return false;
     ++step;
 
@@ -119,7 +118,7 @@ module.exports = async function mset_eq_kzg_grandsum_verifier(pTauFilename, proo
     if (isValid) logger.info("> VERIFICATION OK");
     else logger.error("> VERIFICATION FAILED");
 
-    logger.info("> KZG BASIC VERIFIER FINISHED");
+    logger.info("> KZG GRAND SUM VERIFIER FINISHED");
 
     return isValid;
 
@@ -173,26 +172,26 @@ module.exports = async function mset_eq_kzg_grandsum_verifier(pTauFilename, proo
                 transcript.addPolCommitment(proof.commitments[`T${i}`]);
             }
             challenges.beta = transcript.getChallenge();
-            logger.info("··· 𝛽 = ", Fr.toString(challenges.beta));
+            logger.info("··· 𝛽 =", Fr.toString(challenges.beta));
         }
         
         // STEP 1.2 Calculate challenge gamma from transcript
         transcript.addPolCommitment(proof.commitments["F"]);
         transcript.addPolCommitment(proof.commitments["T"]);
         challenges.gamma = transcript.getChallenge();
-        logger.info("··· 𝜸 = ", Fr.toString(challenges.gamma));
+        logger.info("··· 𝜸 =", Fr.toString(challenges.gamma));
 
         // STEP 1.3 Calculate challenge alpha from transcript
         transcript.addFieldElement(challenges.gamma);
         transcript.addPolCommitment(proof.commitments["S"]);
         challenges.alpha = transcript.getChallenge();
-        logger.info("··· 𝜶 = ", Fr.toString(challenges.alpha));
+        logger.info("··· 𝜶 =", Fr.toString(challenges.alpha));
 
         // STEP 1.4 Calculate challenge 𝔷 from transcript
         transcript.addFieldElement(challenges.alpha);
         transcript.addPolCommitment(proof.commitments["Q"]);
         challenges.xi = transcript.getChallenge();
-        logger.info("··· 𝔷 = ", Fr.toString(challenges.xi));
+        logger.info("··· 𝔷 =", Fr.toString(challenges.xi));
         
         // STEP 1.5 Calculate challenge v from transcript
         transcript.addFieldElement(challenges.xi);
@@ -200,14 +199,14 @@ module.exports = async function mset_eq_kzg_grandsum_verifier(pTauFilename, proo
         transcript.addFieldElement(proof.evaluations["txi"]);
         transcript.addFieldElement(proof.evaluations["sxiw"]);
         challenges.v = transcript.getChallenge();
-        logger.info("··· v = ", Fr.toString(challenges.v));
+        logger.info("··· v =", Fr.toString(challenges.v));
 
         // STEP 1.6 Calculate challenge u from transcript
         transcript.addFieldElement(challenges.v);
         transcript.addPolCommitment(proof.commitments["Wxi"]);
         transcript.addPolCommitment(proof.commitments["Wxiw"]);
         challenges.u = transcript.getChallenge();
-        logger.info("··· u = ", Fr.toString(challenges.u));
+        logger.info("··· u =", Fr.toString(challenges.u));
     }
 
     function validatePolynomialRelation() {

@@ -10,7 +10,7 @@
       "name": "kzg grand product test",
       "skipFiles": ["<node_internals>/**"],
       "program": "${workspaceFolder}/node_modules/mocha/bin/_mocha",
-      "args": ["${workspaceFolder}/test/kzg_grandproduct.test.js"]
+      "args": ["${workspaceFolder}/test/mset_eq_kzg_grandproduct.test.js"]
     },
     {
       "type": "node",
@@ -18,7 +18,7 @@
       "name": "kzg grand sum test",
       "skipFiles": ["<node_internals>/**"],
       "program": "${workspaceFolder}/node_modules/mocha/bin/_mocha",
-      "args": ["${workspaceFolder}/test/kzg_grandsum.test.js"]
+      "args": ["${workspaceFolder}/test/mset_eq_kzg_grandsum.test.js"]
     },
     {
       "type": "node",

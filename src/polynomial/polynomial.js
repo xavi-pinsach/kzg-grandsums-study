@@ -200,11 +200,6 @@ module.exports.Polynomial = class Polynomial {
                 "Polynomial coefficients buffer has incorrect size"
             );
         }
-        if (0 === length) {
-            if (this.logger) {
-                this.logger.warn("Polynomial has length zero");
-            }
-        }
         return length;
     }
 

@@ -100,7 +100,7 @@ module.exports = async function mset_eq_kzg_grandproduct_verifier(pTauFilename, 
     if (isValid) logger.info("> VERIFICATION OK");
     else logger.error("> VERIFICATION FAILED");
 
-    logger.info("> KZG BASIC VERIFIER FINISHED");
+    logger.info("> KZG GRAND PRODUCT VERIFIER FINISHED");
 
     return isValid;
 
