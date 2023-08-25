@@ -23,7 +23,7 @@ describe("Protocols based on grand-sums", function () {
     });
 
     it("Should perform the full proving and verifying process of a SNARK for multiset equalities, based on grand-sums and KZG", async () => {
-        const nBits =  getRandomValue(2, 10);
+        const nBits =  getRandomValue(1, 10);
 
         let evalsBufferF = new Array(1);
         let evalsBufferT = new Array(1);

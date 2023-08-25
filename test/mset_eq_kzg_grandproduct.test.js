@@ -23,7 +23,7 @@ describe("Protocols based on grand-products", function () {
     });
 
     it("Should perform the full proving and verifying process of a SNARK for multiset equalities, based on grand-products and KZG", async () => {
-        const nBits =  getRandomValue(2, 10);
+        const nBits =  getRandomValue(1, 10);
 
         const evalsBufferF = getRandomBuffer(2 ** nBits, curve);
         const evalsBufferT = new Uint8Array(evalsBufferF.byteLength);
