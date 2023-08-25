@@ -7,7 +7,7 @@ const { computeZHEvaluation, computeL1Evaluation } = require("./polynomial/polyn
 const logger = require("../logger.js");
 
 module.exports = async function mset_eq_kzg_grandsum_verifier(pTauFilename, proof, nBits) {
-    logger.info("> KZG GRAND SUM VERIFIER STARTED");
+    logger.info("> MULTISET EQUALITY KZG GRAND-SUM VERIFIER STARTED");
     
     const { fd: fdPTau, sections: pTauSections } = await readBinFile(pTauFilename, "ptau", 1, 1 << 22, 1 << 24);
     const { curve } = await readPTauHeader(fdPTau, pTauSections);
@@ -19,15 +19,16 @@ module.exports = async function mset_eq_kzg_grandsum_verifier(pTauFilename, proo
     const X2 = await fdPTau.read(sG2, pTauSections[3][0].p + sG2);
     await fdPTau.close();
 
-    // Calculate the number of commitment polynomials (proof.commitments.FX, where X ∈ ℕ) present in the proof.
-    const nFXCommitments = Object.keys(proof.commitments).filter(k => k.match(/^F\d/)).length;
-    const nPols = nFXCommitments > 0 ? nFXCommitments : 1;
+    // Obtain the number of polynomials subject to the argument (proof.commitments.Fi, where i ∈ [n]) from the proof.
+    const nFiCommitments = Object.keys(proof.commitments).filter(k => k.match(/^F\d/)).length;
+    const nPols = nFiCommitments > 0 ? nFiCommitments : 1;
     const isVector = nPols > 1;
     
     logger.info("---------------------------------------");
-    logger.info("  KZG GRAND SUM VERIFIER SETTINGS");
+    logger.info("  MULTISET EQUALITY KZG GRAND-SUM VERIFIER SETTINGS");
     logger.info(`  Curve:       ${curve.name}`);
     logger.info(`  Domain size: ${2 ** nBits}`);
+    logger.info(`  Number of polynomials: ${nPols}`);
     logger.info("---------------------------------------");
 
     let challenges = {};
@@ -122,7 +123,7 @@ module.exports = async function mset_eq_kzg_grandsum_verifier(pTauFilename, proo
     if (isValid) logger.info("> VERIFICATION OK");
     else logger.error("> VERIFICATION FAILED");
 
-    logger.info("> KZG GRAND SUM VERIFIER FINISHED");
+    logger.info("> MULTISET EQUALITY KZG GRAND-SUM VERIFIER FINISHED");
 
     return isValid;
 

@@ -10,7 +10,7 @@ const { computeZHEvaluation, computeL1Evaluation } = require("./polynomial/polyn
 const logger = require("../logger.js");
 
 module.exports = async function mset_eq_kzg_grandproduct_prover(pTauFilename, evalsBufferF, evalsBufferT) {
-    logger.info("> KZG GRAND PRODUCT PROVER STARTED");
+    logger.info("> MULTISET EQUALITY KZG GRAND-PRODUCT PROVER STARTED");
 
     const { fd: fdPTau, sections: pTauSections } = await readBinFile(pTauFilename, "ptau", 1, 1 << 22, 1 << 24);
     const { curve, power: nBitsPTau } = await readPTauHeader(fdPTau, pTauSections);
@@ -30,9 +30,9 @@ module.exports = async function mset_eq_kzg_grandproduct_prover(pTauFilename, ev
     const nBits = Math.ceil(Math.log2(evalsT.length()));
     const domainSize = 2 ** nBits;
 
-    // Ensure the polynomial has a length that is equal to domainSize
+    // Ensure the polynomial has a length that is equal to a power of two
     if (evalsT.length() !== domainSize) {
-        throw new Error("Polynomial length must be equal to the domain size.");
+        throw new Error("Polynomial length must be a power of two.");
     }
 
     // Ensure the powers of Tau file is sufficiently large
@@ -45,7 +45,7 @@ module.exports = async function mset_eq_kzg_grandproduct_prover(pTauFilename, ev
     await fdPTau.close();
 
     logger.info("-------------------------------------");
-    logger.info("  KZG GRAND PRODUCT PROVER SETTINGS");
+    logger.info("  MULTISET EQUALITY KZG GRAND-PRODUCT PROVER SETTINGS");
     logger.info(`  Curve:       ${curve.name}`);
     logger.info(`  Domain size: ${domainSize}`);
     logger.info("-------------------------------------");
@@ -71,7 +71,7 @@ module.exports = async function mset_eq_kzg_grandproduct_prover(pTauFilename, ev
     logger.info("> ROUND 5. Compute the opening proof polynomials W𝔷, W𝔷𝛚 ∈ 𝔽[X]");
     await computeW();
 
-    logger.info("> KZG GRAND PRODUCT PROVER FINISHED");
+    logger.info("> MULTISET EQUALITY KZG GRAND-PRODUCT PROVER FINISHED");
 
     return proof;
 

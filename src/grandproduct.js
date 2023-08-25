@@ -9,7 +9,7 @@ module.exports = async function ComputeZGrandProductPolynomial(evaluations, chal
     const evalsF = evaluations[0][0];
     const evalsT = evaluations[0][1];
 
-    logger.info("··· Building the grand-roduct polynomial Z");
+    logger.info("··· Building the grand-product polynomial Z");
 
     if(evalsF.length() !== evalsT.length()) {
         throw new Error("Polynomials must have the same size");
@@ -55,7 +55,7 @@ module.exports = async function ComputeZGrandProductPolynomial(evaluations, chal
     // From now on the values saved on numArr will be Z(X) evaluations buffer
 
     if (!Fr.eq(numArr.slice(0, Fr.n8), Fr.one)) {
-        throw new Error("The grand-product Z(x) is not well computed");
+        throw new Error("The grand-product polynomial Z is not well computed");
     }
 
     // Compute polynomial coefficients z(X) from buffers.Z

@@ -10,7 +10,7 @@ const { computeZHEvaluation, computeL1Evaluation } = require("./polynomial/polyn
 const logger = require("../logger.js");
 
 module.exports = async function mset_eq_kzg_grandsum_prover(pTauFilename, evalsBufferF, evalsBufferT) {
-    logger.info("> KZG GRAND SUM PROVER STARTED");
+    logger.info("> MULTISET EQUALITY KZG GRAND-SUM PROVER STARTED");
 
     if (evalsBufferF.length !== evalsBufferT.length)
         throw new Error(`The lengths of the two vector multisets must be the same.`);
@@ -56,9 +56,10 @@ module.exports = async function mset_eq_kzg_grandsum_prover(pTauFilename, evalsB
     await fdPTau.close();
 
     logger.info("-------------------------------------");
-    logger.info("  KZG GRAND SUM PROVER SETTINGS");
+    logger.info("  MULTISET EQUALITY KZG GRAND-SUM PROVER SETTINGS");
     logger.info(`  Curve:       ${curve.name}`);
     logger.info(`  Domain size: ${domainSize}`);
+    logger.info(`  Number of polynomials: ${nPols}`);
     logger.info("-------------------------------------");
 
     let proof = {evaluations: {}, commitments: {}};
@@ -100,7 +101,7 @@ module.exports = async function mset_eq_kzg_grandsum_prover(pTauFilename, evalsB
     await computeW();
 
     logger.info("");
-    logger.info("> KZG GRAND SUM PROVER FINISHED");
+    logger.info("> MULTISET EQUALITY KZG GRAND-SUM PROVER FINISHED");
 
     return proof;
 

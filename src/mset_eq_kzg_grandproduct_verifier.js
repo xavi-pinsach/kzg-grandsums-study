@@ -7,7 +7,7 @@ const { computeZHEvaluation, computeL1Evaluation } = require("./polynomial/polyn
 const logger = require("../logger.js");
 
 module.exports = async function mset_eq_kzg_grandproduct_verifier(pTauFilename, proof, nBits) {
-    logger.info("> KZG GRAND PRODUCT VERIFIER STARTED");
+    logger.info("> MULTISET EQUALITY KZG GRAND-PRODUCT VERIFIER STARTED");
 
     const { fd: fdPTau, sections: pTauSections } = await readBinFile(pTauFilename, "ptau", 1, 1 << 22, 1 << 24);
     const { curve } = await readPTauHeader(fdPTau, pTauSections);
@@ -20,7 +20,7 @@ module.exports = async function mset_eq_kzg_grandproduct_verifier(pTauFilename, 
     await fdPTau.close();
 
     logger.info("---------------------------------------");
-    logger.info("  KZG GRAND PRODUCT VERIFIER SETTINGS");
+    logger.info("  MULTISET EQUALITY KZG GRAND-PRODUCT VERIFIER SETTINGS");
     logger.info(`  Curve:       ${curve.name}`);
     logger.info(`  Domain size: ${2 ** nBits}`);
     logger.info("---------------------------------------");
@@ -100,7 +100,7 @@ module.exports = async function mset_eq_kzg_grandproduct_verifier(pTauFilename, 
     if (isValid) logger.info("> VERIFICATION OK");
     else logger.error("> VERIFICATION FAILED");
 
-    logger.info("> KZG GRAND PRODUCT VERIFIER FINISHED");
+    logger.info("> MULTISET EQUALITY KZG GRAND-PRODUCT VERIFIER FINISHED");
 
     return isValid;
 

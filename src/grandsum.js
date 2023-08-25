@@ -6,7 +6,7 @@ const logger = require("../logger.js");
 module.exports = async function ComputeSGrandSumPolynomial(evalsF, evalsT, challenge, curve) {
     const Fr = curve.Fr;
 
-    logger.info("··· Building S Grand Sum polynomial");
+    logger.info("··· Building the grand-sum polynomial S");
 
     if(evalsF.length() !== evalsT.length()) {
         throw new Error("Evaluations must have the same size");
@@ -56,7 +56,7 @@ module.exports = async function ComputeSGrandSumPolynomial(evalsF, evalsT, chall
     // From now on the values saved on numArr will be S(X) evaluations buffer
 
     if (!Fr.eq(numArr.slice(0, Fr.n8), Fr.zero)) {
-        throw new Error("The grand-sum S(x) is not well calculated");
+        throw new Error("The grand-sum polynomial S is not well calculated");
     }
 
     // Compute polynomial coefficients S(X) from buffers.S
