@@ -57,7 +57,7 @@ describe("Protocols based on grand-sums", function () {
         const pTauFilename = path.join("tmp", "powersOfTau28_hez_final_11.ptau");
         const proof = await mset_eq_kzg_grandsum_prover(pTauFilename, evalsBufferF, evalsBufferT);
 
-        const isValid = await mset_eq_kzg_grandsum_verifier(pTauFilename, proof, nBits, nPols);
+        const isValid = await mset_eq_kzg_grandsum_verifier(pTauFilename, proof, nBits);
         assert.ok(isValid);
     });
 });

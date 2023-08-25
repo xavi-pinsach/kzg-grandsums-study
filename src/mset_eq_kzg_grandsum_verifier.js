@@ -6,9 +6,9 @@ const { computeZHEvaluation, computeL1Evaluation } = require("./polynomial/polyn
 
 const logger = require("../logger.js");
 
-module.exports = async function mset_eq_kzg_grandsum_verifier(pTauFilename, proof, nBits, nPols = 1) {
+module.exports = async function mset_eq_kzg_grandsum_verifier(pTauFilename, proof, nBits) {
     logger.info("> KZG GRAND SUM VERIFIER STARTED");
-
+    
     const { fd: fdPTau, sections: pTauSections } = await readBinFile(pTauFilename, "ptau", 1, 1 << 22, 1 << 24);
     const { curve } = await readPTauHeader(fdPTau, pTauSections);
     const Fr = curve.Fr;
@@ -19,6 +19,11 @@ module.exports = async function mset_eq_kzg_grandsum_verifier(pTauFilename, proo
     const X2 = await fdPTau.read(sG2, pTauSections[3][0].p + sG2);
     await fdPTau.close();
 
+    // Calculate the number of commitment polynomials (proof.commitments.FX, where X ∈ ℕ) present in the proof.
+    const nFXCommitments = Object.keys(proof.commitments).filter(k => k.match(/^F\d/)).length;
+    const nPols = nFXCommitments > 0 ? nFXCommitments : 1;
+    const isVector = nPols > 1;
+    
     logger.info("---------------------------------------");
     logger.info("  KZG GRAND SUM VERIFIER SETTINGS");
     logger.info(`  Curve:       ${curve.name}`);
@@ -26,7 +31,6 @@ module.exports = async function mset_eq_kzg_grandsum_verifier(pTauFilename, proo
     logger.info("---------------------------------------");
 
     let challenges = {};
-    const isVector = nPols > 1;
     let step = 1;
 
     let pols = "";
