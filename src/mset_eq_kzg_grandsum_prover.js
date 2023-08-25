@@ -27,8 +27,8 @@ module.exports = async function mset_eq_kzg_grandsum_prover(pTauFilename, evalsB
     let evalsFs = new Array(nPols);
     let evalsTs = new Array(nPols);
     for (let i = 0; i < nPols; i++) {
-        evalsFs[i] = new Evaluations(evalsBufferF[i], curve, logger);
-        evalsTs[i] = new Evaluations(evalsBufferT[i], curve, logger);
+        evalsFs[i] = new Evaluations(evalsBufferF[i], curve);
+        evalsTs[i] = new Evaluations(evalsBufferT[i], curve);
 
         // Ensure all polynomials have the same length
         if (evalsFs[i].length() !== evalsTs[i].length()) {
@@ -112,8 +112,8 @@ module.exports = async function mset_eq_kzg_grandsum_prover(pTauFilename, evalsB
             evalsTs[i].eval = await Fr.batchToMontgomery(evalsTs[i].eval);
 
             // Get the polynomials from the evaluations
-            polFs[i] = await Polynomial.fromEvaluations(evalsFs[i].eval, curve, logger);
-            polTs[i] = await Polynomial.fromEvaluations(evalsTs[i].eval, curve, logger);
+            polFs[i] = await Polynomial.fromEvaluations(evalsFs[i].eval, curve);
+            polTs[i] = await Polynomial.fromEvaluations(evalsTs[i].eval, curve);
 
             if (isVector) {
                 proof.commitments[`F${i}`] = await commit(polFs[i]);
@@ -136,15 +136,15 @@ module.exports = async function mset_eq_kzg_grandsum_prover(pTauFilename, evalsB
             challenges.beta = transcript.getChallenge();
             logger.info("···      𝛃  =", Fr.toString(challenges.beta));
 
-            polF = Polynomial.zero(curve, logger);
-            polT = Polynomial.zero(curve, logger);
+            polF = Polynomial.zero(curve);
+            polT = Polynomial.zero(curve);
             for (let i = nPols - 1; i >= 0; i--) {
                 polF.mulScalar(challenges.beta).add(polFs[i]);
                 polT.mulScalar(challenges.beta).add(polTs[i]);
             }
 
-            evalsF = await Evaluations.fromPolynomial(polF, 1, curve, logger);
-            evalsT = await Evaluations.fromPolynomial(polT, 1, curve, logger);
+            evalsF = await Evaluations.fromPolynomial(polF, 1, curve);
+            evalsT = await Evaluations.fromPolynomial(polT, 1, curve);
         } else {
             // If there is only one polynomial, use it as f(x)
             polF = polFs[0];
@@ -181,7 +181,7 @@ module.exports = async function mset_eq_kzg_grandsum_prover(pTauFilename, evalsB
         logger.info("···      𝜶  =", Fr.toString(challenges.alpha));
 
         const polS1 = polS.clone();
-        const polL1 = await Polynomial.Lagrange1(nBits, curve, logger);
+        const polL1 = await Polynomial.Lagrange1(nBits, curve);
         await polS1.multiply(polL1);
 
         const polS21 = polS.clone();

@@ -61,5 +61,5 @@ module.exports = async function ComputeSGrandSumPolynomial(evalsF, evalsT, chall
 
     // Compute polynomial coefficients S(X) from buffers.S
     logger.info("··· Computing S ifft");
-    return await Polynomial.fromEvaluations(numArr, curve, logger);
+    return await Polynomial.fromEvaluations(numArr, curve);
 }

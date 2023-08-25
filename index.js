@@ -3,8 +3,6 @@ const yargs = require("yargs");
 const kzg_basic_prover = require("./src/kzg_basic_prover.js");
 const kzg_basic_verifier = require("./src/kzg_basic_verifier.js");
 
-const logger = require("./logger.js");
-
 yargs
     .scriptName("kzg")
     .version("1.1.0")

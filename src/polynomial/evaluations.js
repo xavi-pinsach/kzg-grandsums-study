@@ -1,14 +1,15 @@
 const { BigBuffer } = require("ffjavascript");
 
+const logger = require("../../logger.js");
+
 module.exports.Evaluations =  class Evaluations {
-    constructor(evaluations, curve, logger) {
+    constructor(evaluations, curve) {
         this.eval = evaluations;
         this.curve = curve;
         this.Fr = curve.Fr;
-        this.logger = logger;
     }
 
-    static async fromPolynomial(polynomial, extension, curve, logger) {
+    static async fromPolynomial(polynomial, extension, curve) {
         const power = Math.ceil(Math.log2(polynomial.length()));
         const length = (1 << power) * extension;
         const coefficientsN = new BigBuffer(length * curve.Fr.n8);
@@ -16,7 +17,7 @@ module.exports.Evaluations =  class Evaluations {
 
         const evaluations = await curve.Fr.fft(coefficientsN);
 
-        return new Evaluations(evaluations, curve, logger);
+        return new Evaluations(evaluations, curve);
     }
 
     getEvaluation(index) {
@@ -44,7 +45,7 @@ module.exports.Evaluations =  class Evaluations {
             throw new Error("Polynomial evaluations buffer has incorrect size");
         }
         if (0 === length) {
-            this.logger.warn("Polynomial has length zero");
+            logger.warn("Polynomial has length zero");
         }
         return length;
     }

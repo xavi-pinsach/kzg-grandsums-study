@@ -19,8 +19,8 @@ module.exports = async function mset_eq_kzg_grandproduct_prover(pTauFilename, ev
     const sG1 = G1.F.n8 * 2;
 
     // ROUND 0. Get the settings and prepare the setup    
-    evalsF = new Evaluations(evalsBufferF, curve, logger);
-    evalsT = new Evaluations(evalsBufferT, curve, logger);
+    evalsF = new Evaluations(evalsBufferF, curve);
+    evalsT = new Evaluations(evalsBufferT, curve);
 
     // Ensure all polynomials have the same length
     if (evalsF.length() !== evalsT.length()) {
@@ -81,8 +81,8 @@ module.exports = async function mset_eq_kzg_grandproduct_prover(pTauFilename, ev
         evalsT.eval = await Fr.batchToMontgomery(evalsT.eval);
 
         // Get the polynomials from the evaluations
-        polF = await Polynomial.fromEvaluations(evalsF.eval, curve, logger);
-        polT = await Polynomial.fromEvaluations(evalsT.eval, curve, logger);
+        polF = await Polynomial.fromEvaluations(evalsF.eval, curve);
+        polT = await Polynomial.fromEvaluations(evalsT.eval, curve);
 
         proof.commitments["F"] = await commit(polF);
         proof.commitments["T"] = await commit(polT);
@@ -98,7 +98,7 @@ module.exports = async function mset_eq_kzg_grandproduct_prover(pTauFilename, ev
         challenges.gamma = transcript.getChallenge();
         logger.info("···      𝜸  =", Fr.toString(challenges.gamma));
     
-        polZ = await ComputeZGrandProductPolynomial([[evalsF, evalsT]], challenges.gamma, curve, logger);
+        polZ = await ComputeZGrandProductPolynomial([[evalsF, evalsT]], challenges.gamma, curve);
     
         proof.commitments["Z"] = await commit(polZ);
         logger.info(`··· [Z(x)]₁ =`, G1.toString(proof.commitments["Z"]));
@@ -112,7 +112,7 @@ module.exports = async function mset_eq_kzg_grandproduct_prover(pTauFilename, ev
         logger.info("···      𝜶  =", Fr.toString(challenges.alpha));
 
         const polZ1 = polZ.clone();
-        const polL1 = await Polynomial.Lagrange1(nBits, curve, logger);
+        const polL1 = await Polynomial.Lagrange1(nBits, curve);
         polZ1.subScalar(Fr.one);
         await polZ1.multiply(polL1);
 

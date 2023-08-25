@@ -60,5 +60,5 @@ module.exports = async function ComputeZGrandProductPolynomial(evaluations, chal
 
     // Compute polynomial coefficients z(X) from buffers.Z
     logger.info("··· Computing Z ifft");
-    return await Polynomial.fromEvaluations(numArr, curve, logger);
+    return await Polynomial.fromEvaluations(numArr, curve);
 }
