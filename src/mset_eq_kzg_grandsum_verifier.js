@@ -23,13 +23,16 @@ module.exports = async function mset_eq_kzg_grandsum_verifier(pTauFilename, proo
     const nFiCommitments = Object.keys(proof.commitments).filter(k => k.match(/^F\d/)).length;
     const nPols = nFiCommitments > 0 ? nFiCommitments : 1;
     const isVector = nPols > 1;
+
+    // Obtain the selectiveness of the argument
+    const isSelected = Object.keys(proof.commitments).filter(k => k.match(/^selF/)).length === 1;
     
     logger.info("---------------------------------------");
     logger.info("  MULTISET EQUALITY KZG GRAND-SUM VERIFIER SETTINGS");
     logger.info(`  Curve:       ${curve.name}`);
     logger.info(`  Domain size: ${2 ** nBits}`);
     logger.info(`  Number of polynomials: ${nPols}`);
-    // logger.info(`  Selectors: ${isSelected ? "Yes" : "No"}`);
+    logger.info(`  Selectors: ${isSelected ? "Yes" : "No"}`);
     logger.info("---------------------------------------");
 
     let challenges = {};
@@ -40,6 +43,8 @@ module.exports = async function mset_eq_kzg_grandsum_verifier(pTauFilename, proo
         for (let i = 1; i <= nPols; i++) {
             pols += `[f${i}(x)]₁,[t${i}(x)]₁,`;
         }
+    } else if (!isVector && isSelected) {
+        pols = "[f'(x)]₁,[t'(x)]₁,";
     }
     logger.info(`> STEP ${step}. Validate ${pols}[f(x)]₁,[t(x)]₁,[S(x)]₁,[Q(x)]₁,[W𝔷(x)]₁,[W𝔷·𝛚(x)]₁ ∈ 𝔾₁`);
 
@@ -50,13 +55,20 @@ module.exports = async function mset_eq_kzg_grandsum_verifier(pTauFilename, proo
     if(!validateEvaluations()) return false;
     ++step;
 
-    if (isVector) {
-        logger.info(`> STEP ${step}. Compute 𝛃,𝜸,𝜶,𝔷,v,u`);
+    if (isVector && isSelected) {
+        logger.info(`> STEP ${step}. Compute 𝛃,𝛅,𝜸,𝜶,𝔷,v,u`);
+    } else if (isVector && !isSelected) {
+        logger.info(`> STEP ${step}. Compute 𝛽,𝜸,𝜶,𝔷,v,u`);
+    } else if (!isVector && isSelected) {
+        logger.info(`> STEP ${step}. Compute 𝛅,𝜸,𝜶,𝔷,v,u`);
     } else {
         logger.info(`> STEP ${step}. Compute 𝜸,𝜶,𝔷,v,u`);
     }
+
     computeChallenges();
     ++step;
+
+    if (isSelected) ++nBits;
 
     if (isVector) {
         logger.info(`> STEP ${step}. Check that the fi and ti are correctly related to the f and t polynomials, respectively`);
@@ -108,6 +120,7 @@ module.exports = async function mset_eq_kzg_grandsum_verifier(pTauFilename, proo
     logger.info("··· [E]₁  =", G1.toString(G1.toAffine(E1)));
     ++step;
 
+    // TODO: Add the extra pairing check to check the relation between the original polynomials with the selected ones
     logger.info(`> STEP ${step}. Check pairing equation e(-[W𝔷(x)]₁ - u·[W𝔷·𝛚(x)]₁, [x]₂)·e(𝔷·[W𝔷(x)]₁ + u𝔷ω·[W𝔷·𝛚(x)]₁ + [F]₁ - [E]₁, [1]₂) = 1`);
     let A1 = G1.timesFr(proof.commitments["Wxiw"], challenges.u);
     A1 = G1.add(proof.commitments["Wxi"], A1);
@@ -148,6 +161,9 @@ module.exports = async function mset_eq_kzg_grandsum_verifier(pTauFilename, proo
                 if (!valueBelongsToGroup1(`[f${i}(x)]₁`, proof.commitments[`F${i}`])) return false;
                 if (!valueBelongsToGroup1(`[t${i}(x)]₁`, proof.commitments[`T${i}`])) return false;
             }
+        } else if (!isVector && isSelected) {
+            if (!valueBelongsToGroup1("[f'(x)]₁", proof.commitments["Fp"])) return false;
+            if (!valueBelongsToGroup1("[t'(x)]₁", proof.commitments["Tp"])) return false;
         }
 
         return (
@@ -177,29 +193,50 @@ module.exports = async function mset_eq_kzg_grandsum_verifier(pTauFilename, proo
                 transcript.addPolCommitment(proof.commitments[`F${i}`]);
                 transcript.addPolCommitment(proof.commitments[`T${i}`]);
             }
+
+            if (isSelected) {
+                transcript.addPolCommitment(proof.commitments["selF"]);
+                transcript.addPolCommitment(proof.commitments["selT"]);
+            }
+
             challenges.beta = transcript.getChallenge();
             logger.info("··· 𝛽 =", Fr.toString(challenges.beta));
         }
+
+        if (isSelected) {
+            // STEP 1.2 Calculate challenge delta from transcript
+            if (isVector) {
+                transcript.addFieldElement(challenges.beta);
+            } else {
+                transcript.addPolCommitment(proof.commitments["Fp"]);
+                transcript.addPolCommitment(proof.commitments["Tp"]);
+                transcript.addPolCommitment(proof.commitments["selF"]);
+                transcript.addPolCommitment(proof.commitments["selT"]);
+            }
+            
+            challenges.delta = transcript.getChallenge();
+            logger.info("··· 𝛅 =", Fr.toString(challenges.delta));
+        }
         
-        // STEP 1.2 Calculate challenge gamma from transcript
+        // STEP 1.3 Calculate challenge gamma from transcript
         transcript.addPolCommitment(proof.commitments["F"]);
         transcript.addPolCommitment(proof.commitments["T"]);
         challenges.gamma = transcript.getChallenge();
         logger.info("··· 𝜸 =", Fr.toString(challenges.gamma));
 
-        // STEP 1.3 Calculate challenge alpha from transcript
+        // STEP 1.4 Calculate challenge alpha from transcript
         transcript.addFieldElement(challenges.gamma);
         transcript.addPolCommitment(proof.commitments["S"]);
         challenges.alpha = transcript.getChallenge();
         logger.info("··· 𝜶 =", Fr.toString(challenges.alpha));
 
-        // STEP 1.4 Calculate challenge 𝔷 from transcript
+        // STEP 1.5 Calculate challenge 𝔷 from transcript
         transcript.addFieldElement(challenges.alpha);
         transcript.addPolCommitment(proof.commitments["Q"]);
         challenges.xi = transcript.getChallenge();
         logger.info("··· 𝔷 =", Fr.toString(challenges.xi));
         
-        // STEP 1.5 Calculate challenge v from transcript
+        // STEP 1.6 Calculate challenge v from transcript
         transcript.addFieldElement(challenges.xi);
         transcript.addFieldElement(proof.evaluations["fxi"]);
         transcript.addFieldElement(proof.evaluations["txi"]);
@@ -207,7 +244,7 @@ module.exports = async function mset_eq_kzg_grandsum_verifier(pTauFilename, proo
         challenges.v = transcript.getChallenge();
         logger.info("··· v =", Fr.toString(challenges.v));
 
-        // STEP 1.6 Calculate challenge u from transcript
+        // STEP 1.7 Calculate challenge u from transcript
         transcript.addFieldElement(challenges.v);
         transcript.addPolCommitment(proof.commitments["Wxi"]);
         transcript.addPolCommitment(proof.commitments["Wxiw"]);

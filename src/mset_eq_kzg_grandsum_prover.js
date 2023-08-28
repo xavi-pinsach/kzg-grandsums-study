@@ -64,7 +64,7 @@ module.exports = async function mset_eq_kzg_grandsum_prover(pTauFilename, evalsB
         logger.warn("The selection buffers are all zeros. The argument is trivially satisfied.");
     }
 
-    const nBits = Math.ceil(Math.log2(evalsFs[0].length()));
+    let nBits = Math.ceil(Math.log2(evalsFs[0].length()));
     const domainSize = 2 ** nBits;
 
     // Ensure the polynomial has a length that is equal to a power of two
@@ -112,6 +112,7 @@ module.exports = async function mset_eq_kzg_grandsum_prover(pTauFilename, evalsB
     if (isVector) logger.info(`> ROUND ${round}. Generate the randomly combined polynomials f,t ∈ 𝔽[X]`);
     await computeFPolynomial();
     if (isVector) ++round;
+    if (isSelected) ++nBits;
 
     logger.info(`> ROUND ${round}. Compute the grand-sum polynomial S ∈ 𝔽[X]`);
     await ComputeSPolynomial();
@@ -269,9 +270,7 @@ module.exports = async function mset_eq_kzg_grandsum_prover(pTauFilename, evalsB
 
         const polS1 = polS.clone();
 
-        let nBitsL1 = nBits;
-        if (isSelected) nBitsL1++;
-        const polL1 = await Polynomial.Lagrange1(nBitsL1, curve);
+        const polL1 = await Polynomial.Lagrange1(nBits, curve);
         
         await polS1.multiply(polL1);
 
@@ -281,7 +280,6 @@ module.exports = async function mset_eq_kzg_grandsum_prover(pTauFilename, evalsB
 
         const polS22 = polF.clone().addScalar(challenges.gamma);
         const polS23 = polT.clone().addScalar(challenges.gamma);
-        console.log("a",polS.degree(),polF.degree(),polT.degree())
 
         await polS21.multiply(polS22);
         await polS21.multiply(polS23);
@@ -293,7 +291,7 @@ module.exports = async function mset_eq_kzg_grandsum_prover(pTauFilename, evalsB
 
         polQ = polS1.add(polS21);
 
-        polQ.divZh(domainSize);
+        polQ.divZh(2**nBits);
 
         proof.commitments["Q"] = await commit(polQ);
         logger.info(`··· [Q(x)]₁ =`, G1.toString(proof.commitments["Q"]));

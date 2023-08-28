@@ -853,8 +853,6 @@ module.exports.Polynomial = class Polynomial {
         const extensions = this.length() / domainSize;
         const length = this.degree() < domainSize ? 0 : 2 ** Math.ceil(Math.log2(this.degree() + 1 - domainSize));
         const newBuffer = new Uint8Array(length * this.Fr.n8);
-        console.log(this.degree(), extensions, length)
-        console.log("***************")
         for (let i = 0; i < domainSize; i++) {
             const i_n8 = i * this.Fr.n8;
             this.coef.set(
