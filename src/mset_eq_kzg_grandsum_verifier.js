@@ -29,6 +29,7 @@ module.exports = async function mset_eq_kzg_grandsum_verifier(pTauFilename, proo
     logger.info(`  Curve:       ${curve.name}`);
     logger.info(`  Domain size: ${2 ** nBits}`);
     logger.info(`  Number of polynomials: ${nPols}`);
+    // logger.info(`  Selectors: ${isSelected ? "Yes" : "No"}`);
     logger.info("---------------------------------------");
 
     let challenges = {};

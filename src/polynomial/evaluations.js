@@ -7,7 +7,7 @@ module.exports.Evaluations =  class Evaluations {
         this.eval = evaluations;
         this.curve = curve;
         this.Fr = curve.Fr;
-    }
+    } 
 
     static async fromPolynomial(polynomial, extension, curve) {
         const power = Math.ceil(Math.log2(polynomial.length()));
@@ -18,6 +18,14 @@ module.exports.Evaluations =  class Evaluations {
         const evaluations = await curve.Fr.fft(coefficientsN);
 
         return new Evaluations(evaluations, curve);
+    }
+
+    static allOnes(length, curve) {
+        let oneBuffer = new Uint8Array(length * curve.Fr.n8);
+        for (let i = 0; i < length; i++) {
+            oneBuffer.set(curve.Fr.one, i * curve.Fr.n8);
+        }
+        return oneBuffer;
     }
 
     getEvaluation(index) {
@@ -48,5 +56,26 @@ module.exports.Evaluations =  class Evaluations {
             logger.warn("Polynomial has length zero");
         }
         return length;
+    }
+
+    isEqual(other) {
+        if (this.length() !== other.length()) {
+            return false;
+        }
+        const result = Buffer.compare(this.eval, other.eval);
+        return result === 0 ? true : false;
+    }
+
+    isAllZeros() {
+        const zeroBuffer = new Uint8Array(this.length() * this.Fr.n8);
+        return this.isEqual(new Evaluations(zeroBuffer, this.curve));
+    }
+
+    isAllOnes() {
+        let oneBuffer = new Uint8Array(this.length() * this.Fr.n8);
+        for (let i = 0; i < this.length(); i++) {
+            oneBuffer.set(this.Fr.one, i * this.Fr.n8);
+        }
+        return this.isEqual(new Evaluations(oneBuffer, this.curve));
     }
 }

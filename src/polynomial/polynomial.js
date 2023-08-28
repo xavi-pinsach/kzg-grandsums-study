@@ -365,9 +365,8 @@ module.exports.Polynomial = class Polynomial {
 
         // Perform the multiplication
         for (let i = 0; i < newLength; i++) {
-            const i_n8 = i * this.Fr.n8;
             const mul_i = this.Fr.mul(evaluations1.getEvaluation(i), evaluations2.getEvaluation(i));
-            newBuffer.set(mul_i, i_n8);
+            newBuffer.set(mul_i, i * this.Fr.n8);
         }
 
         let newCoefs = await this.curve.Fr.ifft(newBuffer);
@@ -387,7 +386,7 @@ module.exports.Polynomial = class Polynomial {
                 : new Uint8Array(lengthB);
 
         newEvals.set(evals.eval.slice(Fr.n8, lengthB), 0);
-        newEvals.set(evals.eval.slice(0, Fr.n8),lengthB - Fr.n8);
+        newEvals.set(evals.eval.slice(0, Fr.n8), lengthB - Fr.n8);
 
         this.coef = await this.curve.Fr.ifft(newEvals);
     }
@@ -852,9 +851,10 @@ module.exports.Polynomial = class Polynomial {
 
     divZh(domainSize) {
         const extensions = this.length() / domainSize;
-        const length = this.degree() + 1 < domainSize ? domainSize : 2 ** Math.ceil(Math.log2(this.degree() + 1 - domainSize));
+        const length = this.degree() < domainSize ? 0 : 2 ** Math.ceil(Math.log2(this.degree() + 1 - domainSize));
         const newBuffer = new Uint8Array(length * this.Fr.n8);
-
+        console.log(this.degree(), extensions, length)
+        console.log("***************")
         for (let i = 0; i < domainSize; i++) {
             const i_n8 = i * this.Fr.n8;
             this.coef.set(
