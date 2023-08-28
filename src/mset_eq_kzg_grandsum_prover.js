@@ -345,6 +345,8 @@ module.exports = async function mset_eq_kzg_grandsum_prover(pTauFilename, evalsB
         const polR3 = polQ.clone().mulScalar(ZHxi);
         polR.sub(polR3);
 
+        let polRR = polR.clone();
+
         // The following can be optimized by using Homer's rule
         const polWxi = polF.clone().subScalar(fxi);
         polWxi.mulScalar(challenges.v);

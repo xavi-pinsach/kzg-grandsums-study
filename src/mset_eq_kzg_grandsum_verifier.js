@@ -55,15 +55,17 @@ module.exports = async function mset_eq_kzg_grandsum_verifier(pTauFilename, proo
     if(!validateEvaluations()) return false;
     ++step;
 
+    let challs = "";
     if (isVector && isSelected) {
-        logger.info(`> STEP ${step}. Compute 𝛃,𝛅,𝜸,𝜶,𝔷,v,u`);
+        challs = "𝛽,𝛅,𝜸,𝜶,𝔷,v,u";
     } else if (isVector && !isSelected) {
-        logger.info(`> STEP ${step}. Compute 𝛽,𝜸,𝜶,𝔷,v,u`);
+        challs = "𝛽,𝜸,𝜶,𝔷,v,u";
     } else if (!isVector && isSelected) {
-        logger.info(`> STEP ${step}. Compute 𝛅,𝜸,𝜶,𝔷,v,u`);
+        challs = "𝛅,𝜸,𝜶,𝔷,v,u";
     } else {
-        logger.info(`> STEP ${step}. Compute 𝜸,𝜶,𝔷,v,u`);
+        challs = "𝜸,𝜶,𝔷,v,u";
     }
+    logger.info(`> STEP ${step}. Compute ${challs}`);
 
     computeChallenges();
     ++step;
@@ -122,20 +124,22 @@ module.exports = async function mset_eq_kzg_grandsum_verifier(pTauFilename, proo
 
     // TODO: Add the extra pairing check to check the relation between the original polynomials with the selected ones
     logger.info(`> STEP ${step}. Check pairing equation e(-[W𝔷(x)]₁ - u·[W𝔷·𝛚(x)]₁, [x]₂)·e(𝔷·[W𝔷(x)]₁ + u𝔷ω·[W𝔷·𝛚(x)]₁ + [F]₁ - [E]₁, [1]₂) = 1`);
-    let A1 = G1.timesFr(proof.commitments["Wxiw"], challenges.u);
-    A1 = G1.add(proof.commitments["Wxi"], A1);
+    let A = G1.timesFr(proof.commitments["Wxiw"], challenges.u);
+    A = G1.add(proof.commitments["Wxi"], A);
 
-    let B1 = Fr.mul(Fr.mul(challenges.u, challenges.xi), Fr.w[nBits]);
-    B1 = G1.timesFr(proof.commitments["Wxiw"], B1);
-    B1 = G1.add(G1.timesFr(proof.commitments["Wxi"], challenges.xi), B1);
-    B1 = G1.add(B1, F1);
-    B1 = G1.sub(B1, E1);
-    const B2 = G2.one;
+    let B = Fr.mul(Fr.mul(challenges.u, challenges.xi), Fr.w[nBits]);
+    B = G1.timesFr(proof.commitments["Wxiw"], B);
+    B = G1.add(G1.timesFr(proof.commitments["Wxi"], challenges.xi), B);
+    B = G1.add(B, F1);
+    B = G1.sub(B, E1);
 
-    const isValid = await curve.pairingEq(G1.neg(A1), X2, B1, B2);
+    const isValid = await curve.pairingEq(G1.neg(A), X2, B, G2.one);
 
-    if (isValid) logger.info("> VERIFICATION OK");
-    else logger.error("> VERIFICATION FAILED");
+    if (isValid) {
+        logger.info("> VERIFICATION OK");
+    } else {
+        logger.error("> VERIFICATION FAILED");
+    }
 
     logger.info("> MULTISET EQUALITY KZG GRAND-SUM VERIFIER FINISHED");
 
