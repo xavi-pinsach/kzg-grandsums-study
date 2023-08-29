@@ -26,13 +26,13 @@ module.exports = async function mset_eq_kzg_grandsum_verifier(pTauFilename, proo
 
     // Obtain the selectiveness of the argument
     const isSelected = Object.keys(proof.commitments).filter(k => k.match(/^selF/)).length === 1;
-    
+
     logger.info("---------------------------------------");
     logger.info("  MULTISET EQUALITY KZG GRAND-SUM VERIFIER SETTINGS");
-    logger.info(`  Curve:       ${curve.name}`);
-    logger.info(`  Domain size: ${2 ** nBits}`);
-    logger.info(`  Number of polynomials: ${nPols}`);
-    logger.info(`  Selectors: ${isSelected ? "Yes" : "No"}`);
+    logger.info(`  Curve:        ${curve.name}`);
+    logger.info(`  Domain size:  ${2 ** nBits}`);
+    logger.info(`  #polynomials: ${nPols}`);
+    logger.info(`  Selectors:    ${isSelected ? "Yes" : "No"}`);
     logger.info("---------------------------------------");
 
     let challenges = {};
@@ -55,16 +55,10 @@ module.exports = async function mset_eq_kzg_grandsum_verifier(pTauFilename, proo
     if(!validateEvaluations()) return false;
     ++step;
 
-    let challs = "";
-    if (isVector && isSelected) {
-        challs = "𝛽,𝛅,𝜸,𝜶,𝔷,v,u";
-    } else if (isVector && !isSelected) {
-        challs = "𝛽,𝜸,𝜶,𝔷,v,u";
-    } else if (!isVector && isSelected) {
-        challs = "𝛅,𝜸,𝜶,𝔷,v,u";
-    } else {
-        challs = "𝜸,𝜶,𝔷,v,u";
-    }
+    let challs = "𝜸,𝜶,𝔷,v,u";
+    if (isSelected) challs = "𝛅," + challs;
+    if (isVector) challs = "𝛽," + challs;
+
     logger.info(`> STEP ${step}. Compute ${challs}`);
 
     computeChallenges();
@@ -165,9 +159,11 @@ module.exports = async function mset_eq_kzg_grandsum_verifier(pTauFilename, proo
                 if (!valueBelongsToGroup1(`[f${i}(x)]₁`, proof.commitments[`F${i}`])) return false;
                 if (!valueBelongsToGroup1(`[t${i}(x)]₁`, proof.commitments[`T${i}`])) return false;
             }
-        } else if (!isVector && isSelected) {
+        } else if (isSelected) {
             if (!valueBelongsToGroup1("[f'(x)]₁", proof.commitments["Fp"])) return false;
             if (!valueBelongsToGroup1("[t'(x)]₁", proof.commitments["Tp"])) return false;
+            if (!valueBelongsToGroup1("[fsel(x)]₁", proof.commitments["selF"])) return false;
+            if (!valueBelongsToGroup1("[tsel(x)]₁", proof.commitments["selT"])) return false;
         }
 
         return (

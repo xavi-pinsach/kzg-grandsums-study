@@ -143,36 +143,30 @@ module.exports = async function mset_eq_kzg_grandsum_prover(pTauFilename, evalsB
             // Get the polynomials from the evaluations
             polFs[i] = await Polynomial.fromEvaluations(evalsFs[i].eval, curve);
             polTs[i] = await Polynomial.fromEvaluations(evalsTs[i].eval, curve);
-
-            if (isVector) {
-                proof.commitments[`F${i}`] = await commit(polFs[i]);
-                proof.commitments[`T${i}`] = await commit(polTs[i]);
-    
-                logger.info(`··· [f${i+1}(x)]₁ =`, G1.toString(proof.commitments[`F${i}`]));
-                logger.info(`··· [t${i+1}(x)]₁ =`, G1.toString(proof.commitments[`T${i}`]));
-            }
         }
 
-        if (!isVector) {
+        if(!isVector) {
             polF = polFs[0];
             polT = polTs[0];
 
             evalsF = evalsFs[0];
             evalsT = evalsTs[0];
-
-            if (isSelected) {
-                proof.commitments["Fp"] = await commit(polF);
-                proof.commitments["Tp"] = await commit(polT);
-                logger.info(`··· [f'(x)]₁ =`, G1.toString(proof.commitments["Fp"]));
-                logger.info(`··· [t'(x)]₁ =`, G1.toString(proof.commitments["Tp"]));
-            } else {
-                proof.commitments["F"] = await commit(polF);
-                proof.commitments["T"] = await commit(polT);
-                logger.info(`··· [f(x)]₁ =`, G1.toString(proof.commitments["F"]));
-                logger.info(`··· [t(x)]₁ =`, G1.toString(proof.commitments["T"]));
-            }
         }
 
+        for (let i = 0; i < nPols; i++) {
+            const namePolF = isVector ? `F${i}` : isSelected ? "Fp" : "F";
+            const namePolT = isVector ? `T${i}` : isSelected ? "Tp" : "T";
+            const lognamePolF = isVector ? `f${i+1}(x)` : isSelected ? "f'(x)" : "f(x)";
+            const lognamePolT = isVector ? `t${i+1}(x)` : isSelected ? "t'(x)" : "t(x)";
+
+            proof.commitments[namePolF] = await commit(polFs[i]);
+            proof.commitments[namePolT] = await commit(polTs[i]);
+
+            logger.info(`··· [${lognamePolF}]₁ =`, G1.toString(proof.commitments[namePolF]));
+            logger.info(`··· [${lognamePolT}]₁ =`, G1.toString(proof.commitments[namePolT]));
+        }
+
+        // Compute the selector polynomials
         if (isSelected) {
             selF = await Polynomial.fromEvaluations(evalsSelF.eval, curve);
             selT = await Polynomial.fromEvaluations(evalsSelT.eval, curve);
