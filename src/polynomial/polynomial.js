@@ -1104,7 +1104,7 @@ module.exports.Polynomial = class Polynomial {
 
     async multiExponentiation(PTau, name) {
         const n = this.degree() + 1;
-        const PTauN = PTau.slice(0, n * this.G1.F.n8 * 2);
+        const PTauN = PTau.slice(0, n * this.Fr.n8 * 2);
         const bm = await this.Fr.batchFromMontgomery(
             this.coef.slice(0, n * this.Fr.n8)
         );
