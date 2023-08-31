@@ -96,6 +96,7 @@ module.exports = async function mset_eq_kzg_grandsum_prover(pTauFilename, evalsB
     let polF, polT, evalsF, evalsT;
     let selF, selT;
     let polS, polQ;
+    let polWxi, polWxiomega;
 
     const transcript = new Keccak256Transcript(curve);
 
@@ -326,6 +327,7 @@ module.exports = async function mset_eq_kzg_grandsum_prover(pTauFilename, evalsB
         const txi = proof.evaluations["txi"];
         const sxiomega = proof.evaluations["sxiw"];
 
+        // Compute the polynomial r(X)
         const polR = polS.clone().mulScalar(L1xi);
 
         const polR2 = polS.clone().mulScalar(Fr.negone).addScalar(sxiomega);
@@ -339,28 +341,37 @@ module.exports = async function mset_eq_kzg_grandsum_prover(pTauFilename, evalsB
         const polR3 = polQ.clone().mulScalar(ZHxi);
         polR.sub(polR3);
 
-        let polRR = polR.clone();
-
-        // The following can be optimized by using Homer's rule
-        const polWxi = polF.clone().subScalar(fxi);
-        polWxi.mulScalar(challenges.v);
+        // Compute the polynomial W𝔷(X)
+        polWxi = polT.clone().subScalar(txi).mulScalar(challenges.v);
+        polWxi.add(polF.clone().subScalar(fxi)).mulScalar(challenges.v);
+        polWxi.add(polR.clone());
         polWxi.divByXSubValue(challenges.xi);
 
-        const polWxi2 = polT.clone().subScalar(txi);
-        polWxi2.mulScalar(Fr.square(challenges.v));
-        polWxi2.divByXSubValue(challenges.xi);
-        polWxi.add(polWxi2);
-
-        polR.divByXSubValue(challenges.xi);
-        polWxi.add(polR);
-
-        const polWxiomega = polS.clone().subScalar(sxiomega);
+        // Compute the polynomial W𝔷·𝛚(X)
+        polWxiomega = polS.clone().subScalar(sxiomega);
         polWxiomega.divByXSubValue(Fr.mul(challenges.xi, Fr.w[nBits]));
 
         proof.commitments["Wxi"] = await commit(polWxi);
         proof.commitments["Wxiw"] = await commit(polWxiomega);
         logger.info("··· [W𝔷(x)]₁   =", G1.toString(proof.commitments["Wxi"]));
         logger.info("··· [W𝔷·𝛚(x)]₁ =", G1.toString(proof.commitments["Wxiw"]));
+    }
+
+    // This function checks whether W𝔷(X)·(X - 𝔷) = r(𝔷) + v·(f(X) - f(𝔷)) + v²·(t(X) - t(𝔷))
+    // and W𝔷·𝛚(X)·(X - 𝔷·𝛚) = S(X) - s(𝔷·𝛚) coincide at a random point
+    function proofIsWellConstructed() {
+        let rando = Fr.random();
+        let LHS1 = Fr.mul(polWxi.evaluate(rando), Fr.sub(rando, challenges.xi));
+        let RHS1 = Fr.add(
+            polRR.evaluate(rando),
+            Fr.mul(Fr.sub(polF.evaluate(rando), fxi), challenges.v)
+        );
+        RHS1 = Fr.add(RHS1, Fr.mul(Fr.sub(polT.evaluate(rando), txi), Fr.square(challenges.v)));
+
+        let LHS2 = Fr.mul(polWxiomega.evaluate(rando), Fr.sub(rando, Fr.mul(challenges.xi, Fr.w[nBits])));
+        let RHS2 = Fr.sub(polS.evaluate(rando), sxiomega);
+
+        return Fr.eq(LHS1, RHS1) && Fr.eq(LHS2, RHS2);
     }
 
     async function commit(polynomial, name) {
