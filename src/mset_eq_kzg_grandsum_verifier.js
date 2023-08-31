@@ -24,7 +24,7 @@ module.exports = async function mset_eq_kzg_grandsum_verifier(pTauFilename, proo
     const nPols = nFiCommitments > 0 ? nFiCommitments : 1;
     const isVector = nPols > 1;
 
-    // Obtain the selectiveness of the argument
+    // Obtain the selectiveness of the argument from the proof
     const isSelected = Object.keys(proof.commitments).filter(k => k.match(/^selF/)).length === 1;
 
     logger.info("---------------------------------------");
@@ -40,12 +40,13 @@ module.exports = async function mset_eq_kzg_grandsum_verifier(pTauFilename, proo
 
     let pols = "";
     if (isVector) {
-        for (let i = 1; i <= nPols; i++) {
-            pols += `[f${i}(x)]₁,[t${i}(x)]₁,`;
+        for (let i = 0; i < nPols; i++) {
+            pols += `[f${i+1}(x)]₁,[t${i+1}(x)]₁,`;
         }
     } else if (!isVector && isSelected) {
         pols = "[f'(x)]₁,[t'(x)]₁,";
     }
+    if (isSelected) pols += "[fsel(x)]₁,[tsel(x)]₁,";
     logger.info(`> STEP ${step}. Validate ${pols}[f(x)]₁,[t(x)]₁,[S(x)]₁,[Q(x)]₁,[W𝔷(x)]₁,[W𝔷·𝛚(x)]₁ ∈ 𝔾₁`);
 
     if(!validateCommitments()) return false;
@@ -58,9 +59,7 @@ module.exports = async function mset_eq_kzg_grandsum_verifier(pTauFilename, proo
     let challs = "𝜸,𝜶,𝔷,v,u";
     if (isSelected) challs = "𝛅," + challs;
     if (isVector) challs = "𝛽," + challs;
-
     logger.info(`> STEP ${step}. Compute ${challs}`);
-
     computeChallenges();
     ++step;
 
@@ -93,25 +92,23 @@ module.exports = async function mset_eq_kzg_grandsum_verifier(pTauFilename, proo
     D1_12 = Fr.mul(D1_12, Fr.add(proof.evaluations["txi"], challenges.gamma));
     let D1_1 = Fr.add(Fr.sub(L1xi, D1_12), challenges.u);
     D1_1 = G1.timesFr(proof.commitments["S"], D1_1);
-
     const D1_2 = G1.timesFr(proof.commitments["Q"], ZHxi);
-
-    let D1 = G1.sub(D1_1,D1_2);
+    const D1 = G1.sub(D1_1,D1_2);
     logger.info("··· [D]₁  =", G1.toString(G1.toAffine(D1)));
     ++step;
 
     logger.info(`> STEP ${step}. Compute [F]₁ = [D]_1 + v·[f(x)]₁ + v^2·[t(x)]₁`);
-    let F1 = G1.timesFr(proof.commitments["F"], challenges.v);
-    F1 = G1.add(F1, G1.timesFr(proof.commitments["T"], Fr.square(challenges.v)));
+    let F1 = G1.timesFr(proof.commitments["T"], challenges.v);
+    F1 = G1.timesFr(G1.add(F1, proof.commitments["F"]), challenges.v);
     F1 = G1.add(F1, D1);
     logger.info("··· [F]₁  =", G1.toString(G1.toAffine(F1)));
     ++step;
 
     logger.info(`> STEP ${step}. Compute [E]₁ = (-r₀ + v·f(𝔷) + v^2·t(𝔷) + u·S(𝔷·𝛚))·[1]_1`);
-    const E1_2 = Fr.mul(challenges.v, proof.evaluations["fxi"]);
-    const E1_3 = Fr.mul(Fr.square(challenges.v), proof.evaluations["txi"]);
-    const E1_4 = Fr.mul(challenges.u, proof.evaluations["sxiw"]);
-    let E1 = Fr.sub(Fr.add(E1_2, Fr.add(E1_3, E1_4)), r0);
+    let E1_1 = Fr.mul(challenges.v, proof.evaluations["txi"]);
+    E1_1 = Fr.mul(Fr.add(E1_1, proof.evaluations["fxi"]), challenges.v);
+    const E1_2 = Fr.mul(challenges.u, proof.evaluations["sxiw"]);
+    let E1 = Fr.sub(Fr.add(E1_1, E1_2), r0);
     E1 = G1.timesFr(G1.one, E1);
     logger.info("··· [E]₁  =", G1.toString(G1.toAffine(E1)));
     ++step;
@@ -121,9 +118,10 @@ module.exports = async function mset_eq_kzg_grandsum_verifier(pTauFilename, proo
     let A = G1.timesFr(proof.commitments["Wxiw"], challenges.u);
     A = G1.add(proof.commitments["Wxi"], A);
 
-    let B = Fr.mul(Fr.mul(challenges.u, challenges.xi), Fr.w[nBits]);
+    let B = Fr.mul(challenges.u, Fr.w[nBits]);
     B = G1.timesFr(proof.commitments["Wxiw"], B);
-    B = G1.add(G1.timesFr(proof.commitments["Wxi"], challenges.xi), B);
+    B = G1.add(proof.commitments["Wxi"], B);
+    B = G1.timesFr(B, challenges.xi);
     B = G1.add(B, F1);
     B = G1.sub(B, E1);
 
@@ -156,12 +154,14 @@ module.exports = async function mset_eq_kzg_grandsum_verifier(pTauFilename, proo
     function validateCommitments() {
         if (isVector) {
             for (let i = 0; i < nPols; i++) {
-                if (!valueBelongsToGroup1(`[f${i}(x)]₁`, proof.commitments[`F${i}`])) return false;
-                if (!valueBelongsToGroup1(`[t${i}(x)]₁`, proof.commitments[`T${i}`])) return false;
+                if (!valueBelongsToGroup1(`[f${i+1}(x)]₁`, proof.commitments[`F${i}`])) return false;
+                if (!valueBelongsToGroup1(`[t${i+1}(x)]₁`, proof.commitments[`T${i}`])) return false;
             }
-        } else if (isSelected) {
+        } else if (!isVector && isSelected) {
             if (!valueBelongsToGroup1("[f'(x)]₁", proof.commitments["Fp"])) return false;
             if (!valueBelongsToGroup1("[t'(x)]₁", proof.commitments["Tp"])) return false;
+        }
+        if (isSelected) {
             if (!valueBelongsToGroup1("[fsel(x)]₁", proof.commitments["selF"])) return false;
             if (!valueBelongsToGroup1("[tsel(x)]₁", proof.commitments["selT"])) return false;
         }
