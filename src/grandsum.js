@@ -3,16 +3,11 @@ const { Polynomial } = require("./polynomial/polynomial");
 
 const logger = require("../logger.js");
 
-module.exports = async function ComputeSGrandSumPolynomial(evalsF, evalsT, challenge, curve) {
+module.exports = async function ComputeSGrandSumPolynomial(evalsF, evalsT, evalsSelF, evalsSelT, challenge, curve) {
     const Fr = curve.Fr;
 
     logger.info("··· Building the grand-sum polynomial S");
 
-    if(evalsF.length() !== evalsT.length()) {
-        throw new Error("Evaluations must have the same size");
-    }
-
-    //Check polF and polT buffers length are the same
     const n = evalsF.length()
 
     let numArr = new BigBuffer(evalsF.length() * Fr.n8);
@@ -31,9 +26,12 @@ module.exports = async function ComputeSGrandSumPolynomial(evalsF, evalsT, chall
         const f = Fr.add(evalsF.getEvaluation(i), challenge);
         const t = Fr.add(evalsT.getEvaluation(i), challenge);
 
-        // 1/f - 1/t = (t - f) / (f * t)
-        // num = t - f, den = f * t
-        const num = Fr.sub(t, f);
+        // TODO: Optimize in the case of non selectors
+        // self/f - selt/t = (t*self - f*selt) / (f * t)
+        // num = t*self - f*selt, den = f * t
+        let num1 = Fr.mul(t, evalsSelF.getEvaluation(i));
+        let num2 = Fr.mul(f, evalsSelT.getEvaluation(i));
+        num = Fr.sub(num1, num2);
         const den = Fr.mul(f, t);
 
         numArr.set(num, ((i + 1) % n) * Fr.n8);

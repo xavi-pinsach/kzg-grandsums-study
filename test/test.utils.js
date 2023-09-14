@@ -15,6 +15,14 @@ function getRandomArray(length, curve) {
     return array;
 }
 
+function getBufferFromArray(array, curve) {
+    let buffer = new Uint8Array(array.length * curve.Fr.n8);
+    for (let i = 0; i < array.length; i++) {
+        buffer.set(array[i], i * curve.Fr.n8);
+    }
+    return buffer;
+}
+
 function getRandomBuffer(length, curve) {
     let buffer = new Uint8Array(length * curve.Fr.n8);
     for (let i = 0; i < length; i++) {
@@ -46,6 +54,7 @@ function getRandomPolynomialByLength(degree, curve) {
 
 module.exports.getRandomValue = getRandomValue;
 module.exports.getRandomArray = getRandomArray;
+module.exports.getBufferFromArray = getBufferFromArray;
 module.exports.getRandomBuffer = getRandomBuffer;
 module.exports.getRandomBinBuffer = getRandomBinBuffer;
 module.exports.getOneBuffer = getOneBuffer;
