@@ -84,23 +84,23 @@ module.exports = async function mset_eq_kzg_grandsum_verifier(pTauFilename, proo
     ++step;
 
     logger.info(`> STEP ${step}. Compute [D]_1 = (L₁(𝔷) - α⋅(f(𝔷) + γ)·(t(𝔷) + γ) + u)·[S(x)]₁ - Z_H(𝔷)·[Q(x)]₁`);
-    let D1_12 = Fr.mul(challenges.alpha, Fr.add(proof.evaluations["fxi"], challenges.gamma));
-    D1_12 = Fr.mul(D1_12, Fr.add(proof.evaluations["txi"], challenges.gamma));
+    const fxigamma = Fr.add(proof.evaluations["fxi"], challenges.gamma);
+    const txigamma = Fr.add(proof.evaluations["txi"], challenges.gamma);
+    let D1_12 = Fr.mul(challenges.alpha, fxigamma);
+    D1_12 = Fr.mul(D1_12, txigamma);
     let D1_1 = Fr.add(Fr.sub(L1xi, D1_12), challenges.u);
     D1_1 = G1.timesFr(proof.commitments["S"], D1_1);
     const D1_2 = G1.timesFr(proof.commitments["Q"], ZHxi);
-
-    let D1;
     if (isSelected) {
-        let D1_sel1 = G1.timesFr(proof.commitments["selT"], Fr.add(proof.evaluations["fxi"], challenges.gamma));
-        let D1_sel2 = G1.timesFr(proof.commitments["selF"], Fr.add(proof.evaluations["txi"], challenges.gamma));
+        let D1_sel1 = Fr.mul(challenges.alpha, fxigamma);
+        D1_sel1 = G1.timesFr(proof.commitments["selT"], D1_sel1);
+        let D1_sel2 = Fr.mul(challenges.alpha, txigamma);
+        D1_sel2 = G1.timesFr(proof.commitments["selF"], D1_sel2);
         let D1_sel = G1.sub(D1_sel1, D1_sel2);
 
-        D1 = G1.add(D1_1, D1_sel);
-        D1 = G1.sub(D1, D1_2);
-    } else {
-        D1 = G1.sub(D1_1,D1_2);
+        D1_1 = G1.add(D1_1, D1_sel);
     }
+    const D1 = G1.sub(D1_1,D1_2);
     logger.info("··· [D]₁  =", G1.toString(G1.toAffine(D1)));
     ++step;
 

@@ -26,7 +26,7 @@ module.exports = async function ComputeSGrandSumPolynomial(evalsF, evalsT, evals
         const f = Fr.add(evalsF.getEvaluation(i), challenge);
         const t = Fr.add(evalsT.getEvaluation(i), challenge);
 
-        // TODO: Optimize in the case of non selectors
+        // TODO: Can we optimize in the case of non selectors?
         // self/f - selt/t = (t*self - f*selt) / (f * t)
         // num = t*self - f*selt, den = f * t
         let num1 = Fr.mul(t, evalsSelF.getEvaluation(i));

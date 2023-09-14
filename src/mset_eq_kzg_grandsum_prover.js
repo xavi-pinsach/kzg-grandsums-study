@@ -12,6 +12,14 @@ const logger = require("../logger.js");
 module.exports = async function mset_eq_kzg_grandsum_prover(pTauFilename, evalsBufferF, evalsBufferT, evalsBufferSelF = null, evalsBufferSelT = null) {
     logger.info("> MULTISET EQUALITY KZG GRAND-SUM PROVER STARTED");
 
+    // The following are done to avoid the user having to provide input buffers of one polynomial as an array one element
+    if (!Array.isArray(evalsBufferF)) {
+        evalsBufferF = [evalsBufferF];
+    }
+    if (!Array.isArray(evalsBufferT)) {
+        evalsBufferT = [evalsBufferT];
+    }
+
     if (evalsBufferF.length !== evalsBufferT.length) {
         throw new Error(`The lengths of the two vector multisets must be the same.`);
     }
@@ -311,13 +319,14 @@ module.exports = async function mset_eq_kzg_grandsum_prover(pTauFilename, evalsB
         const polR = polS.clone().mulScalar(L1xi);
 
         const polR2 = polS.clone().mulScalar(Fr.negone).addScalar(sxiomega);
-        polR2.mulScalar(Fr.add(fxi, challenges.gamma));
-        polR2.mulScalar(Fr.add(txi, challenges.gamma));
+        const fxigamma = Fr.add(fxi, challenges.gamma);
+        const txigamma = Fr.add(txi, challenges.gamma);
+        polR2.mulScalar(fxigamma);
+        polR2.mulScalar(txigamma);
 
         if (isSelected) {
-            // TODO: Optimize
-            polR2.add(selT.clone().mulScalar(Fr.add(fxi, challenges.gamma)));
-            polR2.sub(selF.clone().mulScalar(Fr.add(txi, challenges.gamma)));
+            polR2.add(selT.clone().mulScalar(fxigamma));
+            polR2.sub(selF.clone().mulScalar(txigamma));
         } else {
             polR2.addScalar(Fr.sub(fxi, txi));
         }
