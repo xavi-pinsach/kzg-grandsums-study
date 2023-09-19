@@ -61,7 +61,8 @@ module.exports.Polynomial = class Polynomial {
     }
 
     static zero(curve) {
-        return new Polynomial(new BigBuffer(0), curve);
+        const zero = new Uint8Array(curve.Fr.n8);
+        return new Polynomial(zero, curve);
     }
 
     static async Lagrange1(power, curve) {
