@@ -104,9 +104,9 @@ module.exports = async function mset_eq_kzg_grandsum_prover(pTauFilename, evalsB
     let polF, polT, evalsF, evalsT;
     let selF, selT;
     let polS;
-    let polQ = Polynomial.zero(curve);
-    let polWxi = Polynomial.zero(curve) 
-    let polWxiomega = Polynomial.zero(curve)
+    let polQ = Polynomial.zero(domainSize, curve);
+    let polWxi = Polynomial.zero(domainSize, curve) 
+    let polWxiomega = Polynomial.zero(domainSize, curve)
 
     const transcript = new Keccak256Transcript(curve);
 
@@ -211,8 +211,8 @@ module.exports = async function mset_eq_kzg_grandsum_prover(pTauFilename, evalsB
         // 2. Compute the random linear combination of the polynomials fᵢ,tᵢ ∈ 𝔽[X]
         if (isVector) {
             // QUESTION (Héctor): Should I compute them directly from the evaluations?
-            polF = Polynomial.zero(curve);
-            polT = Polynomial.zero(curve);
+            polF = Polynomial.zero(domainSize, curve);
+            polT = Polynomial.zero(domainSize, curve);
             for (let i = nPols - 1; i >= 0; i--) {
                 polF.mulScalar(challenges.beta).add(polFs[i]);
                 polT.mulScalar(challenges.beta).add(polTs[i]);
@@ -324,7 +324,7 @@ module.exports = async function mset_eq_kzg_grandsum_prover(pTauFilename, evalsB
 
     async function computeW() {
         transcript.addFieldElement(challenges.xi);
-        for (let i = 0; i < nPols; i++) { // TODO (Héctor): Is the order correct?
+        for (let i = 0; i < nPols; i++) { // TODO (Héctor): Is this order the most appropriate one?
             const nameEvalPolF = isVector ? `f${i}xi` : "fxi";
             const nameEvalPolT = isVector ? `t${i}xi` : "txi";
 
@@ -349,7 +349,7 @@ module.exports = async function mset_eq_kzg_grandsum_prover(pTauFilename, evalsB
         logger.info("···  L₁(𝔷)  =", Fr.toString(L1xi));
 
         // Compute the linearisation polynomial r(X)
-        let polR = Polynomial.zero(curve);
+        let polR = Polynomial.zero(domainSize, curve);
         if (isSelected) {
             const selTBin = Fr.sub(proof.evaluations["selTxi"], Fr.square(proof.evaluations["selTxi"]));
             polR.addScalar(selTBin).mulScalar(challenges.alpha);
@@ -389,22 +389,22 @@ module.exports = async function mset_eq_kzg_grandsum_prover(pTauFilename, evalsB
 
         // Compute the polynomial W𝔷(X)
         if (isSelected) {
-            polWxi.add(selT.clone().subScalar(proof.evaluations["selTxi"]).mulScalar(challenges.v));
-            polWxi.add(selF.clone().subScalar(proof.evaluations["selFxi"])).mulScalar(challenges.v);
+            polWxi.add(selT.clone().subScalar(proof.evaluations["selTxi"]));
+            polWxi.mulScalar(challenges.v).add(selF.clone().subScalar(proof.evaluations["selFxi"]));
         }
 
-        for (let i = 0; i < nPols; i++) {
+        for (let i = nPols - 1; i >= 0; i--) {
             const nameEvalPolT = isVector ? `t${i}xi` : "txi";
 
-            polWxi.add(polTs[i].clone().subScalar(proof.evaluations[nameEvalPolT])).mulScalar(challenges.v);
+            polWxi.mulScalar(challenges.v).add(polTs[i].clone().subScalar(proof.evaluations[nameEvalPolT]));
         }
-        for (let i = 0; i < nPols; i++) {
+        for (let i = nPols - 1; i >= 0; i--) {
             const nameEvalPolF = isVector ? `f${i}xi` : "fxi";
 
-            polWxi.add(polFs[i].clone().subScalar(proof.evaluations[nameEvalPolF])).mulScalar(challenges.v);
+            polWxi.mulScalar(challenges.v).add(polFs[i].clone().subScalar(proof.evaluations[nameEvalPolF]));
         }
 
-        polWxi.add(polR.clone());
+        polWxi.mulScalar(challenges.v).add(polR.clone());
         polWxi.divByXSubValue(challenges.xi);
 
         // Compute the polynomial W𝔷·𝛚(X)

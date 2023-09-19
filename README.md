@@ -26,12 +26,14 @@ The repository contains the following files:
 Before running the tests, you need to create a `tmp` folder in the root of the repository. Then, you need to download the `powersOfTau28_hez_final_11.ptau` file from [this link](https://github.com/iden3/snarkjs#7-prepare-phase-2) and place it in the `tmp` folder.
 
 ## TODO List
+- [ ] Update comments and loggers to the more general setting.
 - [ ] Benchmarking: Compare grand-product vs. grand-sum (either single ones or multiple ones).
 - [x] Implement NTT-based polynomial arithmetic to be able to operate over the coefficients. Also $O(n\log(n))$ vs $O(n^2)$.
 - [x] Fix the edge case where `nBits = 1`.
 - [x] Generalize the API/protocol to run in the case of a vector multiset equality.
 - [x] Generalize the API/protocol to run in the case of selected vector multiset equality.
 - [ ] Generalize the API/protocol to run in the case of multiple multiset equality checks.
+- [ ] Implement lookups.
 
 ## License
 

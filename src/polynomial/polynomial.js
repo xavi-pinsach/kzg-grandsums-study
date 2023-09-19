@@ -60,8 +60,8 @@ module.exports.Polynomial = class Polynomial {
         return new Polynomial(buff, curve);
     }
 
-    static zero(curve) {
-        const zero = new Uint8Array(curve.Fr.n8);
+    static zero(length, curve) {
+        const zero = new Uint8Array(length * curve.Fr.n8);
         return new Polynomial(zero, curve);
     }
 

@@ -86,7 +86,7 @@ module.exports = async function mset_eq_kzg_grandsum_verifier(pTauFilename, proo
 
     let fxi = Fr.zero;
     let txi = Fr.zero;
-    for (let i = 0; i < nPols; i++) {
+    for (let i = nPols - 1; i >= 0; i--) {
         const nameEvalPolF = isVector ? `f${i}xi` : "fxi";
         const nameEvalPolT = isVector ? `t${i}xi` : "txi";
 
@@ -118,51 +118,52 @@ module.exports = async function mset_eq_kzg_grandsum_verifier(pTauFilename, proo
     let D1_1 = Fr.add(Fr.sub(L1xi, D1_12), challenges.u);
     D1_1 = G1.timesFr(proof.commitments["S"], D1_1);
     const D1_2 = G1.timesFr(proof.commitments["Q"], ZHxi);
-    const D1 = G1.sub(D1_1,D1_2);
+    const D1 = G1.sub(D1_1, D1_2);
     logger.info("··· [D]₁  =", G1.toString(G1.toAffine(D1)));
     ++step;
 
     logger.info(`> STEP ${step}. Compute [F]₁ = [D]_1 + v·[f(x)]₁ + v^2·[t(x)]₁`);
     let F1 = G1.zero;
     if (isSelected) {
-        F1 = G1.timesFr(G1.add(F1, proof.commitments["selT"]), challenges.v);
-        F1 = G1.timesFr(G1.add(F1, proof.commitments["selF"]), challenges.v);
+        F1 = G1.add(F1, proof.commitments["selT"]);
+        F1 = G1.add(G1.timesFr(F1, challenges.v), proof.commitments["selF"]);
     }
 
-    for (let i = 0; i < nPols; i++) {
+    for (let i = nPols - 1; i >= 0; i--) {
         const namePolT = isVector ? `T${i}` : "T";
 
-        F1 = G1.timesFr(G1.add(F1, proof.commitments[namePolT]), challenges.v);
+        F1 = G1.add(G1.timesFr(F1, challenges.v), proof.commitments[namePolT]);
     }
-    for (let i = 0; i < nPols; i++) {
+    for (let i = nPols - 1; i >= 0; i--) {
         const namePolF = isVector ? `F${i}` : "F";
 
-        F1 = G1.timesFr(G1.add(F1, proof.commitments[namePolF]), challenges.v);
+        F1 = G1.add(G1.timesFr(F1, challenges.v), proof.commitments[namePolF]);
     }
-    F1 = G1.add(F1, D1);
+    F1 = G1.add(G1.timesFr(F1, challenges.v), D1);
     logger.info("··· [F]₁  =", G1.toString(G1.toAffine(F1)));
     ++step;
 
     logger.info(`> STEP ${step}. Compute [E]₁ = (-r₀ + v·f(𝔷) + v^2·t(𝔷) + u·S(𝔷·𝛚))·[1]_1`);
     let E1 = Fr.zero;
     if (isSelected) {
-        E1 = Fr.mul(Fr.add(E1, proof.evaluations["selTxi"]), challenges.v);
-        E1 = Fr.mul(Fr.add(E1, proof.evaluations["selFxi"]), challenges.v);
+        E1 = Fr.add(E1, proof.evaluations["selTxi"]);
+        E1 = Fr.add(Fr.mul(E1, challenges.v), proof.evaluations["selFxi"]);
     }
 
-    for (let i = 0; i < nPols; i++) {
+    for (let i = nPols - 1; i >= 0; i--) {
         const nameEvalPolT = isVector ? `t${i}xi` : "txi";
 
-        E1 = Fr.mul(Fr.add(E1, proof.evaluations[nameEvalPolT]), challenges.v);
+        E1 = Fr.add(Fr.mul(E1, challenges.v), proof.evaluations[nameEvalPolT]);
     }
-    for (let i = 0; i < nPols; i++) {
+    for (let i = nPols - 1; i >= 0; i--) {
         const nameEvalPolF = isVector ? `f${i}xi` : "fxi";
 
-        E1 = Fr.mul(Fr.add(E1, proof.evaluations[nameEvalPolF]), challenges.v);
+        E1 = Fr.add(Fr.mul(E1, challenges.v), proof.evaluations[nameEvalPolF]);
     }
 
     const E1_2 = Fr.mul(challenges.u, proof.evaluations["sxiw"]);
-    E1 = Fr.sub(Fr.add(E1, E1_2), r0);
+    E1 = Fr.add(Fr.mul(E1, challenges.v), E1_2);
+    E1 = Fr.sub(E1, r0);
     E1 = G1.timesFr(G1.one, E1);
     logger.info("··· [E]₁  =", G1.toString(G1.toAffine(E1)));
     ++step;
@@ -284,7 +285,7 @@ module.exports = async function mset_eq_kzg_grandsum_verifier(pTauFilename, proo
         
         // STEP 1.5 Calculate challenge v from transcript
         transcript.addFieldElement(challenges.xi);
-        for (let i = 0; i < nPols; i++) { // TODO (Héctor): Is the order correct?
+        for (let i = 0; i < nPols; i++) { // TODO (Héctor): Is this order the most appropriate one?
             const nameEvalPolF = isVector ? `f${i}xi` : "fxi";
             const nameEvalPolT = isVector ? `t${i}xi` : "txi";
 
