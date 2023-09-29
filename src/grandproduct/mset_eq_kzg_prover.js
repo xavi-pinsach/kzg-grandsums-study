@@ -1,15 +1,15 @@
 const { readBinFile } = require("@iden3/binfileutils");
 const { BigBuffer } = require("ffjavascript");
-const { Keccak256Transcript } = require("./Keccak256Transcript");
-const { Polynomial } = require("./polynomial/polynomial");
-const { Evaluations } = require("./polynomial/evaluations");
+const { Keccak256Transcript } = require("../Keccak256Transcript");
+const { Polynomial } = require("../polynomial/polynomial");
+const { Evaluations } = require("../polynomial/evaluations");
+const { computeZHEvaluation, computeL1Evaluation } = require("../polynomial/polynomial_utils");
+const readPTauHeader = require("../ptau_utils");
 const ComputeZGrandProductPolynomial = require("./grandproduct");
-const readPTauHeader = require("./ptau_utils");
-const { computeZHEvaluation, computeL1Evaluation } = require("./polynomial/polynomial_utils");
 
-const logger = require("../logger.js");
+const logger = require("../../logger.js");
 
-module.exports = async function mset_eq_kzg_grandproduct_prover(pTauFilename, evalsBufferF, evalsBufferT) {
+module.exports = async function mset_eq_kzg_grandproduct_prover(pTauFilename, evalsFs, evalsTs) {
     logger.info("> MULTISET EQUALITY KZG GRAND-PRODUCT PROVER STARTED");
 
     const { fd: fdPTau, sections: pTauSections } = await readBinFile(pTauFilename, "ptau", 1, 1 << 22, 1 << 24);
@@ -18,43 +18,72 @@ module.exports = async function mset_eq_kzg_grandproduct_prover(pTauFilename, ev
     const G1 = curve.G1;
     const sG1 = G1.F.n8 * 2;
 
-    // ROUND 0. Get the settings and prepare the setup    
-    evalsF = new Evaluations(evalsBufferF, curve);
-    evalsT = new Evaluations(evalsBufferT, curve);
-
-    // Ensure all polynomials have the same length
-    if (evalsF.length() !== evalsT.length()) {
-        throw new Error("Both buffers must have the same length.");
+    // The following are done to avoid the user having to provide input buffers of one polynomial as an array one element
+    if (!Array.isArray(evalsFs)) {
+        evalsFs = [evalsFs];
+    }
+    if (!Array.isArray(evalsTs)) {
+        evalsTs = [evalsTs];
     }
 
-    const nBits = Math.ceil(Math.log2(evalsT.length()));
+    // Sanity checks
+    if (evalsFs.length !== evalsTs.length) {
+        throw new Error(`The lengths of the two vector multisets must be the same.`);
+    }
+    const nPols = evalsFs.length;
+    if (nPols === 0) {
+        throw new Error(`The number of multisets must be greater than 0.`);
+    }
+
+    // Ensure all polynomials have the same length
+    for (let i = 0; i < nPols; i++) {
+        if (evalsFs[i].length() !== evalsTs[i].length()) {
+            throw new Error(`The ${i}-th multiset buffers must have the same length.`);
+        } else if (evalsFs[i].length() !== evalsFs[0].length()) {
+            throw new Error("The multiset buffers must all have the same length.");
+        }
+    }
+
+    const nBits = Math.ceil(Math.log2(evalsFs[0].length()));
     const domainSize = 2 ** nBits;
 
     // Ensure the polynomial has a length that is equal to a power of two
-    if (evalsT.length() !== domainSize) {
+    if (evalsFs[0].length() !== domainSize) {
         throw new Error("Polynomial length must be a power of two.");
     }
 
     // Ensure the powers of Tau file is sufficiently large
     if (nBitsPTau < nBits) {
-        throw new Error("The Powers of Tau file is not sufficiently large to commit the polynomials");
+        throw new Error("The Powers of Tau file is not sufficiently large to commit the polynomials.");
     }
 
-    const PTau = new BigBuffer(domainSize * sG1);
-    await fdPTau.readToBuffer(PTau, 0, domainSize * sG1, pTauSections[2][0].p);
+    const PTau = new BigBuffer(domainSize * 2 * sG1);
+    await fdPTau.readToBuffer(PTau, 0, domainSize * 2 * sG1, pTauSections[2][0].p);
     await fdPTau.close();
 
     logger.info("-------------------------------------");
     logger.info("  MULTISET EQUALITY KZG GRAND-PRODUCT PROVER SETTINGS");
     logger.info(`  Curve:       ${curve.name}`);
     logger.info(`  Domain size: ${domainSize}`);
+    logger.info(`  Number of polynomials: ${nPols}`);
+    // logger.info(`  Selectors: ${isSelected ? "Yes" : "No"}`);
     logger.info("-------------------------------------");
 
     let proof = {evaluations: {}, commitments: {}};
     let challenges = {};
-    let polF, polT, polZ, polQ;
+    let polFs = new Array(nPols);
+    let polTs = new Array(nPols);
+    let polF, polT, evalsF, evalsT;
+    let selF, selT;
+    let polS;
+    let polQ = Polynomial.zero(domainSize, curve);
+    let polWxi = Polynomial.zero(domainSize, curve) 
+    let polWxiomega = Polynomial.zero(domainSize, curve)
 
     const transcript = new Keccak256Transcript(curve);
+
+    const isVector = nPols > 1;
+    let round = 1;
 
     logger.info("> ROUND 1. Compute the witness polynomial commitments");
     await computeWitnessPolynomials();
@@ -76,29 +105,71 @@ module.exports = async function mset_eq_kzg_grandproduct_prover(pTauFilename, ev
     return proof;
 
     async function computeWitnessPolynomials() {
-        // Convert the evaluations to Montgomery form
-        evalsF.eval = await Fr.batchToMontgomery(evalsF.eval);
-        evalsT.eval = await Fr.batchToMontgomery(evalsT.eval);
+        for (let i = 0; i < nPols; i++) {
+            // Convert the evaluations to Montgomery form
+            evalsFs[i].eval = await Fr.batchToMontgomery(evalsFs[i].eval);
+            evalsTs[i].eval = await Fr.batchToMontgomery(evalsTs[i].eval);
 
-        // Get the polynomials from the evaluations
-        polF = await Polynomial.fromEvaluations(evalsF.eval, curve);
-        polT = await Polynomial.fromEvaluations(evalsT.eval, curve);
+            // Get the polynomials from the evaluations
+            polFs[i] = await Polynomial.fromEvaluations(evalsFs[i].eval, curve);
+            polTs[i] = await Polynomial.fromEvaluations(evalsTs[i].eval, curve);
+        }
 
-        proof.commitments["F"] = await commit(polF);
-        proof.commitments["T"] = await commit(polT);
+        for (let i = 0; i < nPols; i++) {
+            const namePolF = isVector ? `F${i}` : "F";
+            const namePolT = isVector ? `T${i}` : "T";
+            const lognamePolF = isVector ? `f${i+1}(x)` : "f(x)";
+            const lognamePolT = isVector ? `t${i+1}(x)` : "t(x)";
 
-        logger.info(`··· [f(x)]₁ =`, G1.toString(proof.commitments["F"]));
-        logger.info(`··· [t(x)]₁ =`, G1.toString(proof.commitments["T"]));
+            proof.commitments[namePolF] = await commit(polFs[i]);
+            proof.commitments[namePolT] = await commit(polTs[i]);
+
+            logger.info(`··· [${lognamePolF}]₁ =`, G1.toString(proof.commitments[namePolF]));
+            logger.info(`··· [${lognamePolT}]₁ =`, G1.toString(proof.commitments[namePolT]));
+        }
     }
 
     async function ComputeZPolynomial() {
-        transcript.addPolCommitment(proof.commitments["F"]);
-        transcript.addPolCommitment(proof.commitments["T"]);
+        // 1. Compute the challenges
+        for (let i = 0; i < nPols; i++) {
+            const namePolF = isVector ? `F${i}` : "F";
+            const namePolT = isVector ? `T${i}` : "T";
+
+            transcript.addPolCommitment(proof.commitments[namePolF]);
+            transcript.addPolCommitment(proof.commitments[namePolT]);
+        }
+
+        if (isVector) {
+            challenges.beta = transcript.getChallenge();
+            logger.info("···      𝛃  =", Fr.toString(challenges.beta));
+
+            transcript.addFieldElement(challenges.beta);
+        }
 
         challenges.gamma = transcript.getChallenge();
         logger.info("···      𝜸  =", Fr.toString(challenges.gamma));
+
+        // 2. Compute the random linear combination of the polynomials fᵢ,tᵢ ∈ 𝔽[X]
+        if (isVector) {
+            // QUESTION (Héctor): Should I compute them directly from the evaluations?
+            polF = Polynomial.zero(domainSize, curve);
+            polT = Polynomial.zero(domainSize, curve);
+            for (let i = nPols - 1; i >= 0; i--) {
+                polF.mulScalar(challenges.beta).add(polFs[i]);
+                polT.mulScalar(challenges.beta).add(polTs[i]);
+            }
+
+            evalsF = await Evaluations.fromPolynomial(polF, 1, curve);
+            evalsT = await Evaluations.fromPolynomial(polT, 1, curve);
+        } else {
+            polF = polFs[0];
+            polT = polTs[0];
+
+            evalsF = evalsFs[0];
+            evalsT = evalsTs[0];
+        }
     
-        polZ = await ComputeZGrandProductPolynomial([[evalsF, evalsT]], challenges.gamma, curve);
+        polZ = await ComputeZGrandProductPolynomial(evalsF, evalsT, challenges.gamma, curve);
     
         proof.commitments["Z"] = await commit(polZ);
         logger.info(`··· [Z(x)]₁ =`, G1.toString(proof.commitments["Z"]));

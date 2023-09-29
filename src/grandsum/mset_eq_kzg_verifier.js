@@ -1,10 +1,10 @@
 const { readBinFile } = require("@iden3/binfileutils");
 const { Scalar } = require("ffjavascript");
-const { Keccak256Transcript } = require("./Keccak256Transcript");
-const readPTauHeader = require("./ptau_utils");
-const { computeZHEvaluation, computeL1Evaluation } = require("./polynomial/polynomial_utils");
+const { Keccak256Transcript } = require("../Keccak256Transcript");
+const { computeZHEvaluation, computeL1Evaluation } = require("../polynomial/polynomial_utils");
+const readPTauHeader = require("../ptau_utils");
 
-const logger = require("../logger.js");
+const logger = require("../../logger.js");
 
 module.exports = async function mset_eq_kzg_grandsum_verifier(pTauFilename, proof, nBits) {
     logger.info("> MULTISET EQUALITY KZG GRAND-SUM VERIFIER STARTED");

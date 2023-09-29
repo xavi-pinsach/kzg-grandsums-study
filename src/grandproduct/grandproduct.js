@@ -1,22 +1,14 @@
 const { BigBuffer } = require("ffjavascript");
-const { Evaluations } = require("./polynomial/evaluations");
-const { Polynomial } = require("./polynomial/polynomial");
+const { Polynomial } = require("../polynomial/polynomial");
 
-const logger = require("../logger.js");
+const logger = require("../../logger.js");
 
-module.exports = async function ComputeZGrandProductPolynomial(evaluations, challenge, curve) {
+module.exports = async function ComputeZGrandProductPolynomial(evalsF, evalsT, challenge, curve) {
     const Fr = curve.Fr;
-    const evalsF = evaluations[0][0];
-    const evalsT = evaluations[0][1];
 
     logger.info("··· Building the grand-product polynomial Z");
 
-    if(evalsF.length() !== evalsT.length()) {
-        throw new Error("Polynomials must have the same size");
-    }
-
-    //Check polF and polT buffers length are the same
-    const n = evalsF.length();
+    const n = evalsF.length()
 
     let numArr = new BigBuffer(evalsF.length() * Fr.n8);
     let denArr = new BigBuffer(evalsF.length() * Fr.n8);

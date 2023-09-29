@@ -1,7 +1,7 @@
 const { BigBuffer } = require("ffjavascript");
-const { Polynomial } = require("./polynomial/polynomial");
+const { Polynomial } = require("../polynomial/polynomial");
 
-const logger = require("../logger.js");
+const logger = require("../../logger.js");
 
 module.exports = async function ComputeSGrandSumPolynomial(evalsF, evalsT, evalsSelF, evalsSelT, challenge, curve) {
     const Fr = curve.Fr;

@@ -1,11 +1,11 @@
 const assert = require("assert");
+const path = require("path");
 const { getCurveFromName } = require("ffjavascript");
 const { getRandomValue } = require("./test.utils.js");
-const path = require("path");
-
-const mset_eq_kzg_grandsum_prover = require("../src/mset_eq_kzg_grandsum_prover.js");
-const mset_eq_kzg_grandsum_verifier = require("../src/mset_eq_kzg_grandsum_verifier.js");
 const { Evaluations } = require("../src/polynomial/evaluations.js");
+
+const mset_eq_kzg_grandsum_prover = require("../src/grandsum/mset_eq_kzg_prover.js");
+const mset_eq_kzg_grandsum_verifier = require("../src/grandsum/mset_eq_kzg_verifier.js");
 
 describe("Protocols based on grand-sums and KZG", () => {
     let curve;
