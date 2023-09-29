@@ -9,37 +9,26 @@ const { computeZHEvaluation, computeL1Evaluation } = require("./polynomial/polyn
 
 const logger = require("../logger.js");
 
-module.exports = async function mset_eq_kzg_grandsum_prover(pTauFilename, evalsBufferF, evalsBufferT, evalsBufferSelF = null, evalsBufferSelT = null) {
+module.exports = async function mset_eq_kzg_grandsum_prover(pTauFilename, evalsFs, evalsTs, evalsSelF = null, evalsSelT = null) {
     logger.info("> MULTISET EQUALITY KZG GRAND-SUM PROVER STARTED");
 
     // The following are done to avoid the user having to provide input buffers of one polynomial as an array one element
-    if (!Array.isArray(evalsBufferF)) {
-        evalsBufferF = [evalsBufferF];
+    if (!Array.isArray(evalsFs)) {
+        evalsFs = [evalsFs];
     }
-    if (!Array.isArray(evalsBufferT)) {
-        evalsBufferT = [evalsBufferT];
+    if (!Array.isArray(evalsTs)) {
+        evalsTs = [evalsTs];
     }
 
-    if (evalsBufferF.length !== evalsBufferT.length) {
+    // Sanity checks
+    if (evalsFs.length !== evalsTs.length) {
         throw new Error(`The lengths of the two vector multisets must be the same.`);
     }
-    const nPols = evalsBufferF.length;
+    const nPols = evalsFs.length;
     if (nPols === 0) {
         throw new Error(`The number of multisets must be greater than 0.`);
     }
-
-    const { fd: fdPTau, sections: pTauSections } = await readBinFile(pTauFilename, "ptau", 1, 1 << 22, 1 << 24);
-    const { curve, power: nBitsPTau } = await readPTauHeader(fdPTau, pTauSections);
-    const Fr = curve.Fr;
-    const G1 = curve.G1;
-    const sG1 = G1.F.n8 * 2;
-
-    let evalsFs = new Array(nPols);
-    let evalsTs = new Array(nPols);
     for (let i = 0; i < nPols; i++) {
-        evalsFs[i] = new Evaluations(evalsBufferF[i], curve);
-        evalsTs[i] = new Evaluations(evalsBufferT[i], curve);
-
         // Ensure all polynomials have the same length
         if (evalsFs[i].length() !== evalsTs[i].length()) {
             throw new Error(`The ${i}-th multiset buffers must have the same length.`);
@@ -48,16 +37,21 @@ module.exports = async function mset_eq_kzg_grandsum_prover(pTauFilename, evalsB
         }
     }
 
+    const { fd: fdPTau, sections: pTauSections } = await readBinFile(pTauFilename, "ptau", 1, 1 << 22, 1 << 24);
+    const { curve, power: nBitsPTau } = await readPTauHeader(fdPTau, pTauSections);
+    const Fr = curve.Fr;
+    const G1 = curve.G1;
+    const sG1 = G1.F.n8 * 2;
+
     // If the selection buffers are not provided, assume all elements are selected
-    if (evalsBufferSelF === null) {
-        evalsBufferSelF = Evaluations.allOnes(evalsFs[0].length(), curve);
+    if (evalsSelF === null) {
+        evalsSelF = Evaluations.getOneEvals(evalsFs[0].length(), curve);
     } 
-    if (evalsBufferSelT === null) {
-        evalsBufferSelT = Evaluations.allOnes(evalsFs[0].length(), curve);
+    if (evalsSelT === null) {
+        evalsSelT = Evaluations.getOneEvals(evalsTs[0].length(), curve);
     }
 
-    const evalsSelF = new Evaluations(evalsBufferSelF, curve);
-    const evalsSelT = new Evaluations(evalsBufferSelT, curve);
+    // More sanity checks
     if (evalsSelF.length() !== evalsSelT.length()) {
         throw new Error("The selection buffers must have the same length.");
     } else if (evalsSelF.length() !== evalsFs[0].length()) {

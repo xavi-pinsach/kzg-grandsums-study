@@ -2,7 +2,7 @@ const { BigBuffer } = require("ffjavascript");
 
 const logger = require("../../logger.js");
 
-module.exports.Evaluations =  class Evaluations {
+class Evaluations {
     constructor(evaluations, curve) {
         this.eval = evaluations;
         this.curve = curve;
@@ -20,22 +20,71 @@ module.exports.Evaluations =  class Evaluations {
         return new Evaluations(evaluations, curve);
     }
 
-    static allOnes(length, curve) {
-        let oneBuffer = new Uint8Array(length * curve.Fr.n8);
-        for (let i = 0; i < length; i++) {
-            oneBuffer.set(curve.Fr.one, i * curve.Fr.n8);
+    static fromArray(array, curve) {
+        let buffer = new Uint8Array(array.length * curve.Fr.n8);
+        for (let i = 0; i < array.length; i++) {
+            buffer.set(array[i], i * curve.Fr.n8);
         }
-        return oneBuffer;
+        return new Evaluations(buffer, curve);
+    }
+
+    static fromEvals(evals) {
+        return new Evaluations(evals.eval.slice(), evals.curve);
+    }
+
+    static getOneEvals(length, curve) {
+        let buffer = new Uint8Array(length * curve.Fr.n8);
+        for (let i = 0; i < length; i++) {
+            buffer.set(curve.Fr.one, i * curve.Fr.n8);
+        }
+        return new Evaluations(buffer, curve);
+    }
+
+    static getZeroEvals(length, curve) {
+        let buffer = new Uint8Array(length * curve.Fr.n8);
+        for (let i = 0; i < length; i++) {
+            buffer.set(curve.Fr.zero, i * curve.Fr.n8);
+        }
+        return new Evaluations(buffer, curve);
+    }
+
+    static getRandomEvals(length, curve) {
+        let buffer = new Uint8Array(length * curve.Fr.n8);
+        for (let i = 0; i < length; i++) {
+            buffer.set(curve.Fr.random(), i * curve.Fr.n8);
+        }
+        return new Evaluations(buffer, curve);
+    }
+
+    static getRandomBinEvals(length, curve) {
+        let buffer = new Uint8Array(length * curve.Fr.n8);
+        for (let i = 0; i < length; i++) {
+            const bit = Math.floor(Math.random() * 2);
+            buffer.set(bit === 1 ? curve.Fr.one : curve.Fr.zero, i * curve.Fr.n8);
+        }
+        return new Evaluations(buffer, curve);
     }
 
     getEvaluation(index) {
-        const i_n8 = index * this.Fr.n8;
-
-        if (i_n8 + this.Fr.n8 > this.eval.byteLength) {
+        if ((index + 1) * this.Fr.n8 > this.eval.byteLength) {
             throw new Error("Evaluations.getEvaluation() out of bounds");
         }
 
-        return this.eval.slice(i_n8, i_n8 + this.Fr.n8);
+        return this.eval.slice(index * this.Fr.n8, (index + 1) * this.Fr.n8);
+    }
+
+    getEvaluationSequence(start, end) {
+        if (start > end) {
+            throw new Error("Evaluations.getEvaluationSequence() start index is greater than end index");
+        } else if (start === end) {
+            throw new Error("Use Evaluations.getEvaluation() instead");
+        }
+
+        if (end > this.length() - 1) {
+            throw new Error("Evaluations.getEvaluationSequence() end index is out of bounds");
+        }
+
+        return this.eval.slice(start * this.Fr.n8, end * this.Fr.n8);
     }
 
     setEvaluation(index, value) {
@@ -78,4 +127,12 @@ module.exports.Evaluations =  class Evaluations {
         }
         return this.isEqual(new Evaluations(oneBuffer, this.curve));
     }
+
+    print(name = "f") {
+        for (let i = 0; i < this.length(); i++) {
+            console.log(`${name}(𝛚^${i}) =`, this.Fr.toString(this.getEvaluation(i)));
+        }
+    }
 }
+
+module.exports = { Evaluations };

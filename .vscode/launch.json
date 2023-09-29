@@ -7,7 +7,7 @@
     {
       "type": "node",
       "request": "launch",
-      "name": "kzg grand product test",
+      "name": "mset eq kzg grand product test",
       "skipFiles": ["<node_internals>/**"],
       "program": "${workspaceFolder}/node_modules/mocha/bin/_mocha",
       "args": ["${workspaceFolder}/test/mset_eq_kzg_grandproduct.test.js"]
@@ -15,10 +15,18 @@
     {
       "type": "node",
       "request": "launch",
-      "name": "kzg grand sum test",
+      "name": "mset eq kzg grand sum test",
       "skipFiles": ["<node_internals>/**"],
       "program": "${workspaceFolder}/node_modules/mocha/bin/_mocha",
       "args": ["${workspaceFolder}/test/mset_eq_kzg_grandsum.test.js"]
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "lookup kzg grand sum test",
+      "skipFiles": ["<node_internals>/**"],
+      "program": "${workspaceFolder}/node_modules/mocha/bin/_mocha",
+      "args": ["${workspaceFolder}/test/lookup_kzg_grandsum.test.js"]
     },
     {
       "type": "node",
