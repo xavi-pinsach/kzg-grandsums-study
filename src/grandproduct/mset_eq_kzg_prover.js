@@ -4,12 +4,12 @@ const { Keccak256Transcript } = require("../Keccak256Transcript");
 const { Polynomial } = require("../polynomial/polynomial");
 const { Evaluations } = require("../polynomial/evaluations");
 const { computeZHEvaluation, computeL1Evaluation } = require("../polynomial/polynomial_utils");
-const readPTauHeader = require("../ptau_utils");
-const ComputeZGrandProductPolynomial = require("./grandproduct");
+const { readPTauHeader } = require("../ptau_utils");
+const { ComputeZGrandProductPolynomial } = require("./grandproduct");
 
 const logger = require("../../logger.js");
 
-module.exports = async function mset_eq_kzg_grandproduct_prover(pTauFilename, evalsFs, evalsTs) {
+module.exports = async function mset_eq_kzg_grandproduct_prover(pTauFilename, evalsFs, evalsTs, evalsSelF = null, evalsSelT = null) {
     logger.info("> MULTISET EQUALITY KZG GRAND-PRODUCT PROVER STARTED");
 
     const { fd: fdPTau, sections: pTauSections } = await readBinFile(pTauFilename, "ptau", 1, 1 << 22, 1 << 24);
@@ -44,6 +44,29 @@ module.exports = async function mset_eq_kzg_grandproduct_prover(pTauFilename, ev
         }
     }
 
+    // If the selection buffers are not provided, assume all elements are selected
+    if (evalsSelF === null) {
+        evalsSelF = Evaluations.getOneEvals(evalsFs[0].length(), curve);
+    } 
+    if (evalsSelT === null) {
+        evalsSelT = Evaluations.getOneEvals(evalsTs[0].length(), curve);
+    }
+
+    // More sanity checks
+    if (evalsSelF.length() !== evalsSelT.length()) {
+        throw new Error("The selection buffers must have the same length.");
+    } else if (evalsSelF.length() !== evalsFs[0].length()) {
+        throw new Error("The selection buffers must have the same length as the multiset buffers.");
+    }
+
+    // Checking for "trivial" cases
+    let isSelected = true;
+    if (evalsSelF.isAllOnes() && evalsSelT.isAllOnes()) {
+        isSelected = false;
+    } else if (evalsSelF.isAllZeros() && evalsSelT.isAllZeros()) {
+        logger.warn("The selection buffers are all zeros. The argument is trivially satisfied.");
+    }
+
     const nBits = Math.ceil(Math.log2(evalsFs[0].length()));
     const domainSize = 2 ** nBits;
 
@@ -66,7 +89,7 @@ module.exports = async function mset_eq_kzg_grandproduct_prover(pTauFilename, ev
     logger.info(`  Curve:       ${curve.name}`);
     logger.info(`  Domain size: ${domainSize}`);
     logger.info(`  Number of polynomials: ${nPols}`);
-    // logger.info(`  Selectors: ${isSelected ? "Yes" : "No"}`);
+    logger.info(`  Selectors: ${isSelected ? "Yes" : "No"}`);
     logger.info("-------------------------------------");
 
     let proof = {evaluations: {}, commitments: {}};
@@ -75,7 +98,7 @@ module.exports = async function mset_eq_kzg_grandproduct_prover(pTauFilename, ev
     let polTs = new Array(nPols);
     let polF, polT, evalsF, evalsT;
     let selF, selT;
-    let polS;
+    let polZ;
     let polQ = Polynomial.zero(domainSize, curve);
     let polWxi = Polynomial.zero(domainSize, curve) 
     let polWxiomega = Polynomial.zero(domainSize, curve)
@@ -85,21 +108,35 @@ module.exports = async function mset_eq_kzg_grandproduct_prover(pTauFilename, ev
     const isVector = nPols > 1;
     let round = 1;
 
-    logger.info("> ROUND 1. Compute the witness polynomial commitments");
+    let msg = "> ROUND ${round}. Generate the witness polynomials";
+    if (isVector) {
+        msg += ` fᵢ,tᵢ ∈ 𝔽[X], for i ∈ [${nPols}]`;
+    } else {
+        msg += ` f,t ∈ 𝔽[X]`;
+    }
+    if (isSelected) {
+        msg += ", and the selector polynomials fsel,tsel ∈ 𝔽[X]";
+    }
+    logger.info(msg);
     await computeWitnessPolynomials();
+    ++round;
 
-    logger.info("> ROUND 2. Compute the grand-product polynomial Z ∈ 𝔽[X]");
+    logger.info(`> ROUND ${round}. Compute the grand-product polynomial Z ∈ 𝔽[X]`);
     await ComputeZPolynomial();
+    ++round;
 
-    logger.info("> ROUND 3. Compute the quotient polynomial Q ∈ 𝔽[X]");
+    logger.info(`> ROUND ${round}. Compute the quotient polynomial Q ∈ 𝔽[X]`);
     await computeQPolynomial();
+    ++round;
 
-    logger.info("> ROUND 4. Compute the evaluations of the polynomials");
+    logger.info(`> ROUND ${round}. Compute the evaluations of the polynomials`);
     computeEvaluations();
+    ++round;
 
-    logger.info("> ROUND 5. Compute the opening proof polynomials W𝔷, W𝔷𝛚 ∈ 𝔽[X]");
+    logger.info(`> ROUND ${round}. Compute the opening proof polynomials W𝔷, W𝔷𝛚 ∈ 𝔽[X]`);
     await computeW();
 
+    logger.info("");
     logger.info("> MULTISET EQUALITY KZG GRAND-PRODUCT PROVER FINISHED");
 
     return proof;
@@ -127,6 +164,18 @@ module.exports = async function mset_eq_kzg_grandproduct_prover(pTauFilename, ev
             logger.info(`··· [${lognamePolF}]₁ =`, G1.toString(proof.commitments[namePolF]));
             logger.info(`··· [${lognamePolT}]₁ =`, G1.toString(proof.commitments[namePolT]));
         }
+
+        // Compute the selector polynomials
+        if (isSelected) {
+            selF = await Polynomial.fromEvaluations(evalsSelF.eval, curve);
+            selT = await Polynomial.fromEvaluations(evalsSelT.eval, curve);
+
+            proof.commitments["selF"] = await commit(selF);
+            proof.commitments["selT"] = await commit(selT);
+            
+            logger.info(`··· [fsel(x)]₁ =`, G1.toString(proof.commitments["selF"]));
+            logger.info(`··· [tsel(x)]₁ =`, G1.toString(proof.commitments["selT"]));
+        }
     }
 
     async function ComputeZPolynomial() {
@@ -137,6 +186,11 @@ module.exports = async function mset_eq_kzg_grandproduct_prover(pTauFilename, ev
 
             transcript.addPolCommitment(proof.commitments[namePolF]);
             transcript.addPolCommitment(proof.commitments[namePolT]);
+        }
+
+        if (isSelected) {
+            transcript.addPolCommitment(proof.commitments["selF"]);
+            transcript.addPolCommitment(proof.commitments["selT"]);
         }
 
         if (isVector) {
@@ -169,8 +223,9 @@ module.exports = async function mset_eq_kzg_grandproduct_prover(pTauFilename, ev
             evalsT = evalsTs[0];
         }
     
-        polZ = await ComputeZGrandProductPolynomial(evalsF, evalsT, challenges.gamma, curve);
-    
+        // 3. Compute the grand-product polynomial S(X)
+        polZ = await ComputeZGrandProductPolynomial(evalsF, evalsT, evalsSelF, evalsSelT, isSelected, challenges.gamma, curve);
+
         proof.commitments["Z"] = await commit(polZ);
         logger.info(`··· [Z(x)]₁ =`, G1.toString(proof.commitments["Z"]));
     }
@@ -182,24 +237,48 @@ module.exports = async function mset_eq_kzg_grandproduct_prover(pTauFilename, ev
         challenges.alpha = transcript.getChallenge();
         logger.info("···      𝜶  =", Fr.toString(challenges.alpha));
 
-        const polZ1 = polZ.clone();
+        if (isSelected) {
+            const selTBin1 = selT.clone()
+            await selTBin1.multiply(selT.clone());
+            const selTBin = selT.clone().sub(selTBin1);
+            polQ.add(selTBin).mulScalar(challenges.alpha);
+
+            const selFBin1 = selF.clone()
+            await selFBin1.multiply(selF.clone());
+            const selFBin = selF.clone().sub(selFBin1);
+            polQ.add(selFBin).mulScalar(challenges.alpha);
+        }
+
+        const polQ1 = polZ.clone();
+        await polQ1.shiftOmega();
+        const polQ2 = polZ.clone();
+
+        const polFGamma = polF.clone().addScalar(challenges.gamma);
+        const polTGamma = polT.clone().addScalar(challenges.gamma);
+
+        if (isSelected) {
+            polTGamma.subScalar(Fr.one);
+            await polTGamma.multiply(selT.clone());
+            polTGamma.addScalar(Fr.one);
+            await polQ1.multiply(polTGamma);
+
+            polFGamma.subScalar(Fr.one);
+            await polFGamma.multiply(selF.clone());
+            polFGamma.addScalar(Fr.one);
+            await polQ2.multiply(polFGamma);
+        } else {
+            await polQ1.multiply(polTGamma);
+            await polQ2.multiply(polFGamma);
+        }
+
+        polQ1.sub(polQ2);
+        polQ.add(polQ1).mulScalar(challenges.alpha);
+
+        const polQ3 = polZ.clone();
         const polL1 = await Polynomial.Lagrange1(nBits, curve);
-        polZ1.subScalar(Fr.one);
-        await polZ1.multiply(polL1);
-
-        const polZ21 = polZ.clone();
-        await polZ21.shiftOmega();
-        const polT21 = polT.clone().addScalar(challenges.gamma);
-        await polZ21.multiply(polT21);
-
-        const polZ22 = polZ.clone();
-        const polF22 = polF.clone().addScalar(challenges.gamma);
-        await polZ22.multiply(polF22);
-
-        polZ21.sub(polZ22);
-        polZ21.mulScalar(challenges.alpha);
-
-        polQ = polZ1.add(polZ21);
+        polQ3.subScalar(Fr.one);
+        await polQ3.multiply(polL1);
+        polQ.add(polQ3);
 
         polQ.divZh(domainSize);
 
@@ -214,49 +293,114 @@ module.exports = async function mset_eq_kzg_grandproduct_prover(pTauFilename, ev
         challenges.xi = transcript.getChallenge();
         logger.info("···      𝔷  =", Fr.toString(challenges.xi));
 
-        proof.evaluations["fxi"] = polF.evaluate(challenges.xi);
-        proof.evaluations["zxiw"] = polZ.evaluate(Fr.mul(challenges.xi, Fr.w[nBits]));
+        for (let i = 0; i < nPols; i++) {
+            const nameEvalPolF = isVector ? `f${i}xi` : "fxi";
+            const lognameEvalPolF = isVector ? `f${i+1}(𝔷)` : "f(𝔷)";
 
-        logger.info(`···   f(𝔷)  =`, Fr.toString(proof.evaluations["fxi"]));
+            proof.evaluations[nameEvalPolF] = polFs[i].evaluate(challenges.xi);
+
+            logger.info(`···   ${lognameEvalPolF}  =`, Fr.toString(proof.evaluations[nameEvalPolF]));
+        }
+
+        if (isSelected) {
+            proof.evaluations["selFxi"] = selF.evaluate(challenges.xi);
+            proof.evaluations["selTxi"] = selT.evaluate(challenges.xi);
+
+            logger.info(`···   fsel(𝔷)  =`, Fr.toString(proof.evaluations["selFxi"]));
+            logger.info(`···   tsel(𝔷)  =`, Fr.toString(proof.evaluations["selTxi"]));
+        }
+
+        proof.evaluations["zxiw"] = polZ.evaluate(Fr.mul(challenges.xi, Fr.w[nBits]));
         logger.info(`··· Z(𝔷·𝛚)  =`, Fr.toString(proof.evaluations["zxiw"]));
     }
 
     async function computeW() {
         transcript.addFieldElement(challenges.xi);
-        transcript.addFieldElement(proof.evaluations["fxi"]);
+        for (let i = 0; i < nPols; i++) {
+            const nameEvalPolF = isVector ? `f${i}xi` : "fxi";
+            transcript.addFieldElement(proof.evaluations[nameEvalPolF]);
+        }
+
+        if (isSelected) {
+            transcript.addFieldElement(proof.evaluations["selFxi"]);
+            transcript.addFieldElement(proof.evaluations["selTxi"]);
+        }
+
         transcript.addFieldElement(proof.evaluations["zxiw"]);
 
         challenges.v = transcript.getChallenge();
         logger.info("···      v  = ", Fr.toString(challenges.v));
 
-        // Compute the linearisation polynomial r
         const ZHxi = computeZHEvaluation(curve, challenges.xi, nBits);
         const L1xi = computeL1Evaluation(curve, challenges.xi, ZHxi, nBits);
 
         logger.info("···  ZH(𝔷)  =", Fr.toString(ZHxi));
         logger.info("···  L₁(𝔷)  =", Fr.toString(L1xi));
 
-        const fxi = proof.evaluations["fxi"];
-        const zxiomega = proof.evaluations["zxiw"];
+        // Compute the linearisation polynomial r(X)
+        let polR = Polynomial.zero(domainSize, curve);
+        if (isSelected) {
+            const selTBin = Fr.sub(proof.evaluations["selTxi"], Fr.square(proof.evaluations["selTxi"]));
+            polR.addScalar(selTBin).mulScalar(challenges.alpha);
 
-        const polR = polZ.clone().subScalar(Fr.one).mulScalar(L1xi);
+            const selFBin = Fr.sub(proof.evaluations["selFxi"], Fr.square(proof.evaluations["selFxi"]));
+            polR.addScalar(selFBin).mulScalar(challenges.alpha);
+        }
 
-        const polR21 = polT.clone().addScalar(challenges.gamma).mulScalar(zxiomega);
-        const polR22 = polZ.clone().mulScalar(Fr.add(fxi, challenges.gamma));
-        polR21.sub(polR22).mulScalar(challenges.alpha);
-        polR.add(polR21);
+        const polR1 = Polynomial.zero(domainSize, curve);
+
+        const fxi = polF.evaluate(challenges.xi);
+        let fxigamma = Fr.add(fxi, challenges.gamma);
+        let txigamma = polT.addScalar(challenges.gamma);
+
+        if (isSelected) {
+            fxigamma = Fr.sub(fxigamma, Fr.one);
+            txigamma = txigamma.subScalar(Fr.one);
+            const selFGamma = Fr.add(Fr.mul(proof.evaluations["selFxi"], fxigamma), Fr.one);
+            const selTGamma = txigamma.mulScalar(proof.evaluations["selTxi"]).addScalar(Fr.one);
+
+            selTGamma.mulScalar(proof.evaluations["zxiw"]);
+            polR1.add(selTGamma);
+
+            const ZZ = polZ.clone();
+            ZZ.mulScalar(selFGamma);
+
+            polR1.sub(ZZ);
+        } else {
+            txigamma.mulScalar(proof.evaluations["zxiw"]);
+            polR1.add(txigamma);
+
+            const ZZ = polZ.clone();
+            ZZ.mulScalar(fxigamma);
+
+            polR1.sub(ZZ);
+        }
+
+        polR.add(polR1).mulScalar(challenges.alpha);
+
+        const polR2 = polZ.clone().subScalar(Fr.one);
+        polR2.mulScalar(L1xi);
+        polR.add(polR2);
 
         const polR3 = polQ.clone().mulScalar(ZHxi);
         polR.sub(polR3);
 
-        const polWxi = polF.clone().subScalar(fxi);
+        // Compute the polynomial W𝔷(X)
+        if (isSelected) {
+            polWxi.add(selT.clone().subScalar(proof.evaluations["selTxi"]));
+            polWxi.mulScalar(challenges.v).add(selF.clone().subScalar(proof.evaluations["selFxi"]));
+        }
+
+        for (let i = nPols - 1; i >= 0; i--) {
+            const nameEvalPolF = isVector ? `f${i}xi` : "fxi";
+            polWxi.mulScalar(challenges.v).add(polFs[i].clone().subScalar(proof.evaluations[nameEvalPolF]));
+        }
+
+        polWxi.mulScalar(challenges.v).add(polR.clone());
         polWxi.divByXSubValue(challenges.xi);
-        polWxi.mulScalar(challenges.v);
 
-        polR.divByXSubValue(challenges.xi);
-        polWxi.add(polR);
-
-        const polWxiomega = polZ.clone().subScalar(zxiomega);
+        // Compute the polynomial W𝔷·𝛚(X)
+        polWxiomega = polZ.clone().subScalar(proof.evaluations["zxiw"]);
         polWxiomega.divByXSubValue(Fr.mul(challenges.xi, Fr.w[nBits]));
 
         proof.commitments["Wxi"] = await commit(polWxi)

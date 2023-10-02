@@ -3,7 +3,7 @@ const { Polynomial } = require("../polynomial/polynomial");
 
 const logger = require("../../logger.js");
 
-module.exports = async function ComputeSGrandSumPolynomial(evalsF, evalsT, evalsSelF, evalsSelT, challenge, curve) {
+module.exports.ComputeSGrandSumPolynomial = async function ComputeSGrandSumPolynomial(evalsF, evalsT, evalsSelF, evalsSelT, challenge, curve) {
     const Fr = curve.Fr;
 
     logger.info("··· Building the grand-sum polynomial S");
@@ -20,7 +20,6 @@ module.exports = async function ComputeSGrandSumPolynomial(evalsF, evalsT, evals
     // Set initial omega
     for (let i = 0; i < n; i++) {
         if ((~i) && (i & 0xFFF === 0)) logger.info(`··· S evaluation ${i}/${n}`);
-        const i_sFr = i * Fr.n8;
 
         // f = (f + challenge), t = (t + challenge)
         const f = Fr.add(evalsF.getEvaluation(i), challenge);

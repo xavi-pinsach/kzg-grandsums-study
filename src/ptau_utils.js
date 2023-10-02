@@ -1,6 +1,6 @@
 const { Scalar, getCurveFromQ } = require("ffjavascript");
 
-module.exports = async function readPTauHeader(fd, sections) {
+module.exports.readPTauHeader = async function readPTauHeader(fd, sections) {
     if (!sections[1]) throw new Error(fd.fileName + ": File has no  header");
     if (sections[1].length > 1)
         throw new Error(fd.fileName + ": File has more than one header");

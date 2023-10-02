@@ -3,7 +3,7 @@ const { Polynomial } = require("../polynomial/polynomial");
 
 const logger = require("../../logger.js");
 
-module.exports = async function ComputeZGrandProductPolynomial(evalsF, evalsT, challenge, curve) {
+module.exports.ComputeZGrandProductPolynomial = async function ComputeZGrandProductPolynomial(evalsF, evalsT, evalsSelF, evalsSelT, isSelected, challenge, curve) {
     const Fr = curve.Fr;
 
     logger.info("··· Building the grand-product polynomial Z");
@@ -17,37 +17,41 @@ module.exports = async function ComputeZGrandProductPolynomial(evalsF, evalsT, c
     numArr.set(Fr.one, 0);
     denArr.set(Fr.one, 0);
 
+    // Set initial omega
     for (let i = 0; i < n; i++) {
         if ((~i) && (i & 0xFFF === 0)) logger.info(`··· Z evaluation ${i}/${n}`);
-        const i_sFr = i * Fr.n8;
 
         // num := (f + challenge), den := (t + challenge)
         let num = Fr.add(evalsF.getEvaluation(i), challenge);
         let den = Fr.add(evalsT.getEvaluation(i), challenge);
 
-        // Multiply the current num or den value with the previous value stored  in numArr or denArr, respectively
-        num = Fr.mul(numArr.slice(i_sFr, i_sFr + Fr.n8), num);
-        den = Fr.mul(denArr.slice(i_sFr, i_sFr + Fr.n8), den);
+        if (isSelected) {
+            // num := self * (num - 1) + 1, den := selt * (den - 1) + 1
+            num = Fr.add(Fr.mul(evalsSelF.getEvaluation(i), Fr.sub(num, Fr.one)), Fr.one);
+            den = Fr.add(Fr.mul(evalsSelT.getEvaluation(i), Fr.sub(den, Fr.one)), Fr.one);
+        }
 
         numArr.set(num, ((i + 1) % n) * Fr.n8);
         denArr.set(den, ((i + 1) % n) * Fr.n8);
     }
-    // Compute the inverse of denArr to compute in the next step the
-    // division numArr/denArr by multiplying num · 1/denArr
+
+    // Compute the batch inverse of denArr
     denArr = await Fr.batchInverse(denArr);
 
-    // Perform element-wise multiplication numArr · denArr, where denArr was inverted in the previous command
+    // Multiply numArr · denArr where denArr was inverted in the previous command
+    let lastVal = Fr.one;
     for (let i = 0; i < n; i++) {
-        const i_sFr = i * Fr.n8;
+        const i_sFr = ((i + 1) % n) * Fr.n8;
 
-        const z = Fr.mul(numArr.slice(i_sFr, i_sFr + Fr.n8), denArr.slice(i_sFr, i_sFr + Fr.n8));
-        numArr.set(z, i_sFr);
+        let s = Fr.mul(numArr.slice(i_sFr, i_sFr + Fr.n8), denArr.slice(i_sFr, i_sFr + Fr.n8));
+        lastVal = Fr.mul(s, lastVal);
+        numArr.set(lastVal, i_sFr);
     }
     
     // From now on the values saved on numArr will be Z(X) evaluations buffer
 
     if (!Fr.eq(numArr.slice(0, Fr.n8), Fr.one)) {
-        throw new Error("The grand-product polynomial Z is not well computed");
+        throw new Error("The grand-product polynomial Z is not well calculated");
     }
 
     // Compute polynomial coefficients z(X) from buffers.Z

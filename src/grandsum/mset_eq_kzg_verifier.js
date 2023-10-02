@@ -2,7 +2,7 @@ const { readBinFile } = require("@iden3/binfileutils");
 const { Scalar } = require("ffjavascript");
 const { Keccak256Transcript } = require("../Keccak256Transcript");
 const { computeZHEvaluation, computeL1Evaluation } = require("../polynomial/polynomial_utils");
-const readPTauHeader = require("../ptau_utils");
+const { readPTauHeader } = require("../ptau_utils");
 
 const logger = require("../../logger.js");
 
@@ -74,7 +74,7 @@ module.exports = async function mset_eq_kzg_grandsum_verifier(pTauFilename, proo
     logger.info("··· L₁(𝔷) =", Fr.toString(L1xi));
     ++step;
 
-    logger.info(`> STEP ${step}. Compute r₀ = α⋅[ S(𝔷·𝛚)·(f(𝔷) + γ)·(t(𝔷) + γ) + f(𝔷) - t(𝔷) ]`);
+    logger.info(`> STEP ${step}. Compute r₀ = `);
     let r0 = Fr.zero;
     if (isSelected) {
         const selTBin = Fr.sub(proof.evaluations["selTxi"], Fr.square(proof.evaluations["selTxi"]));
@@ -112,7 +112,7 @@ module.exports = async function mset_eq_kzg_grandsum_verifier(pTauFilename, proo
     logger.info("··· r₀    =", Fr.toString(r0));
     ++step;
 
-    logger.info(`> STEP ${step}. Compute [D]_1 = (L₁(𝔷) - α⋅(f(𝔷) + γ)·(t(𝔷) + γ) + u)·[S(x)]₁ - Z_H(𝔷)·[Q(x)]₁`);
+    logger.info(`> STEP ${step}. Compute [D]₁ = `);
     let D1_12 = Fr.mul(challenges.alpha, fxigamma);
     D1_12 = Fr.mul(D1_12, txigamma);
     let D1_1 = Fr.add(Fr.sub(L1xi, D1_12), challenges.u);
@@ -122,7 +122,7 @@ module.exports = async function mset_eq_kzg_grandsum_verifier(pTauFilename, proo
     logger.info("··· [D]₁  =", G1.toString(G1.toAffine(D1)));
     ++step;
 
-    logger.info(`> STEP ${step}. Compute [F]₁ = [D]_1 + v·[f(x)]₁ + v^2·[t(x)]₁`);
+    logger.info(`> STEP ${step}. Compute [F]₁ = `);
     let F1 = G1.zero;
     if (isSelected) {
         F1 = G1.add(F1, proof.commitments["selT"]);
@@ -143,7 +143,7 @@ module.exports = async function mset_eq_kzg_grandsum_verifier(pTauFilename, proo
     logger.info("··· [F]₁  =", G1.toString(G1.toAffine(F1)));
     ++step;
 
-    logger.info(`> STEP ${step}. Compute [E]₁ = (-r₀ + v·f(𝔷) + v^2·t(𝔷) + u·S(𝔷·𝛚))·[1]_1`);
+    logger.info(`> STEP ${step}. Compute [E]₁ = `);
     let E1 = Fr.zero;
     if (isSelected) {
         E1 = Fr.add(E1, proof.evaluations["selTxi"]);

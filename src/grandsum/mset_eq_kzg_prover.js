@@ -4,8 +4,8 @@ const { Keccak256Transcript } = require("../Keccak256Transcript");
 const { Polynomial } = require("../polynomial/polynomial");
 const { Evaluations } = require("../polynomial/evaluations");
 const { computeZHEvaluation, computeL1Evaluation } = require("../polynomial/polynomial_utils");
-const readPTauHeader = require("../ptau_utils");
-const ComputeSGrandSumPolynomial = require("./grandsum");
+const { readPTauHeader } = require("../ptau_utils");
+const { ComputeSGrandSumPolynomial } = require("./grandsum");
 
 const logger = require("../../logger.js");
 
@@ -279,7 +279,7 @@ module.exports = async function mset_eq_kzg_grandsum_prover(pTauFilename, evalsF
         await polQ2.multiply(polL1);
         polQ.add(polQ2);
 
-        polQ.divZh(2**nBits);
+        polQ.divZh(domainSize);
 
         proof.commitments["Q"] = await commit(polQ);
         logger.info(`··· [Q(x)]₁ =`, G1.toString(proof.commitments["Q"]));
