@@ -99,7 +99,7 @@ module.exports = async function mset_eq_kzg_grandproduct_verifier(pTauFilename, 
     logger.info("··· r₀    =", Fr.toString(r0));
     ++step;
 
-    logger.info(`> STEP ${step}. Compute [D]₁ = (L₁(𝔷) - 𝜶[tsel(𝔷)(sum + 𝜸 - 1) + 1) + u][Z(x)]₁ - ZH(𝔷)[Q(x)]₁)`);
+    logger.info(`> STEP ${step}. Compute [D]₁ = `);
     let fxi = Fr.zero;
     for (let i = nPols - 1; i >= 0; i--) {
         const nameEvalPolF = isVector ? `f${i}xi` : "fxi";
@@ -112,8 +112,20 @@ module.exports = async function mset_eq_kzg_grandproduct_verifier(pTauFilename, 
     let D1_12 = Fr.mul(challenges.alpha, fxigamma);
     let D1_1 = Fr.add(Fr.sub(L1xi, D1_12), challenges.u);
     D1_1 = G1.timesFr(proof.commitments["Z"], D1_1);
-    const D1_2 = G1.timesFr(proof.commitments["Q"], ZHxi);
-    const D1 = G1.sub(D1_1, D1_2);
+
+    let D1_2 = G1.zero;
+    for (let i = nPols - 1; i >= 0; i--) {
+        const namePolT = isVector ? `T${i}` : "T";
+        D1_2 = G1.add(G1.timesFr(D1_2, challenges.beta), proof.commitments[namePolT]);
+    }
+    if (isSelected) D1_2 = G1.timesFr(D1_2, proof.evaluations["selTxi"]);
+    D1_2 = G1.timesFr(D1_2, proof.evaluations["zxiw"]);
+    D1_2 = G1.timesFr(D1_2, challenges.alpha);
+
+    const D1_3 = G1.timesFr(proof.commitments["Q"], ZHxi);
+
+    let D1 = G1.add(D1_1, D1_2);
+    D1 = G1.sub(D1, D1_3);
     logger.info("··· [D]₁  =", G1.toString(G1.toAffine(D1)));
     ++step;
 

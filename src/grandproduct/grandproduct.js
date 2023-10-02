@@ -25,11 +25,8 @@ module.exports.ComputeZGrandProductPolynomial = async function ComputeZGrandProd
         let num = Fr.add(evalsF.getEvaluation(i), challenge);
         let den = Fr.add(evalsT.getEvaluation(i), challenge);
 
-        if (isSelected) {
-            // num := self * (num - 1) + 1, den := selt * (den - 1) + 1
-            num = Fr.add(Fr.mul(evalsSelF.getEvaluation(i), Fr.sub(num, Fr.one)), Fr.one);
-            den = Fr.add(Fr.mul(evalsSelT.getEvaluation(i), Fr.sub(den, Fr.one)), Fr.one);
-        }
+        num = Fr.add(Fr.mul(evalsSelF.getEvaluation(i), Fr.sub(num, Fr.one)), Fr.one);
+        den = Fr.add(Fr.mul(evalsSelT.getEvaluation(i), Fr.sub(den, Fr.one)), Fr.one);
 
         numArr.set(num, ((i + 1) % n) * Fr.n8);
         denArr.set(den, ((i + 1) % n) * Fr.n8);
@@ -47,7 +44,7 @@ module.exports.ComputeZGrandProductPolynomial = async function ComputeZGrandProd
         lastVal = Fr.mul(s, lastVal);
         numArr.set(lastVal, i_sFr);
     }
-    
+
     // From now on the values saved on numArr will be Z(X) evaluations buffer
 
     if (!Fr.eq(numArr.slice(0, Fr.n8), Fr.one)) {

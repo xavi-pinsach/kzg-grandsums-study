@@ -1,11 +1,14 @@
 const yargs = require("yargs");
+const version = require("./package.json").version;
 
-const kzg_basic_prover = require("./src/kzg_basic_prover.js");
-const kzg_basic_verifier = require("./src/kzg_basic_verifier.js");
+const mset_eq_kzg_grandproduct_prover = require("./src/grandproduct/mset_eq_kzg_prover.js");
+const mset_eq_kzg_grandproduct_verifier = require("./src/grandproduct/mset_eq_kzg_verifier.js");
+const mset_eq_kzg_grandsum_prover = require("./src/grandsum/mset_eq_kzg_prover.js");
+const mset_eq_kzg_grandsum_verifier = require("./src/grandsum/mset_eq_kzg_verifier.js");
 
 yargs
     .scriptName("kzg")
-    .version("1.1.0")
+    .version(version)
     .usage("$0 <cmd>")
     .command(
         "prove",
@@ -32,9 +35,9 @@ yargs
     .help().argv;
 
 async function _kzg_basic_prover() {
-    return await kzg_basic_prover();
+    return await mset_eq_kzg_grandproduct_prover();
 }
 
 async function _kzg_basic_verifier(proof) {
-    return await kzg_basic_verifier(proof);
+    return await mset_eq_kzg_grandproduct_verifier(proof);
 }
